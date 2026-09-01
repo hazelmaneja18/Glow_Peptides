@@ -236,10 +236,25 @@
   .invoice-totals .it-grand{font-weight:800;font-size:16px;color:var(--purple-ink);border-top:1px solid var(--line);padding-top:6px;margin-top:4px;}
   .invoice-footer{text-align:center;font-size:12px;color:var(--ink-soft);margin-top:6px;}
 
+  :root{ --receipt-width: 80mm; }
   @media print {
+    @page { size: var(--receipt-width) auto; margin: 0; }
     body *{visibility:hidden;}
-    #invoice-print-area, #invoice-print-area *{visibility:visible;}
-    #invoice-print-area{position:absolute;top:0;left:0;width:100%;padding:20px;}
+    #invoice-print-area, #invoice-print-area *{visibility:visible; color:#000 !important; border-color:#000 !important;}
+    #invoice-print-area{
+      position:absolute;top:0;left:0;width:var(--receipt-width);
+      padding:6px 8px;margin:0;font-family:'Inter',monospace;
+    }
+    #invoice-print-area .invoice-brand{margin-bottom:8px;}
+    #invoice-print-area .invoice-brand svg{width:26px;height:26px;}
+    #invoice-print-area .invoice-brand-text{font-size:14px;}
+    #invoice-print-area .invoice-brand-text span{font-size:9px;}
+    #invoice-print-area .invoice-meta{font-size:10.5px;margin-bottom:8px;}
+    #invoice-print-area .invoice-table{font-size:10px;margin-bottom:8px;}
+    #invoice-print-area .invoice-table th, #invoice-print-area .invoice-table td{padding:3px 2px;}
+    #invoice-print-area .invoice-totals{font-size:10.5px;}
+    #invoice-print-area .invoice-totals .it-grand{font-size:13px;}
+    #invoice-print-area .invoice-footer{font-size:9.5px;margin-top:8px;}
   }
 
   #auth-gate{display:none;}
@@ -401,6 +416,9 @@
           <div class="stat-sub" id="stat-personal-sub">not for resale</div>
         </div>
       </div>
+
+      <div class="section-title">Overall costing vs profit <span class="hint">everything ever added to inventory</span></div>
+      <div class="card" style="margin-bottom:26px;"><div id="costing-vs-profit"></div></div>
 
       <div class="section-title">Units in stock — breakdown <span class="hint">by category &amp; product</span></div>
       <div class="card" id="stock-breakdown-card"><div id="stock-breakdown"></div></div>
@@ -684,6 +702,13 @@
 <!-- Invoice View / Print Modal -->
 <div class="modal-backdrop" id="invoice-modal" style="display:none;">
   <div class="modal" style="max-width:420px;">
+    <div class="field" style="margin-bottom:14px;">
+      <label>Receipt paper width</label>
+      <select id="iv-paper-width" onchange="updatePaperWidth()">
+        <option value="80mm">80mm (most small printers)</option>
+        <option value="58mm">58mm (narrower rolls)</option>
+      </select>
+    </div>
     <div id="invoice-print-area">
       <div class="invoice-brand">
         <svg viewBox="0 0 40 40" fill="none" width="34" height="34">
@@ -1566,6 +1591,12 @@ function renderDashboard(){
   const soldQty = qtyBulk + qtySales;
   const personalCost = personal.reduce((s,p)=>s+costTotal(p),0);
 
+  // Total capital ever put into inventory: everything still sitting in products
+  // (stock on hand, personal use, bulk-sold entries) plus the cost basis of units
+  // already sold off through cart checkouts (which no longer show up in `products`
+  // since their quantity was decremented away).
+  const totalCostingAll = products.reduce((s,p)=>s+costTotal(p),0) + costSales;
+
   document.getElementById('stat-profit').textContent = peso(profit);
   document.getElementById('stat-profit-sub').textContent = `revenue ${peso(revenue)} minus cost ${peso(soldCost)}`;
   document.getElementById('stat-stock').textContent = stockQty;
@@ -1588,8 +1619,33 @@ function renderDashboard(){
       </div>`).join('');
   }
 
+  renderCostingVsProfit(totalCostingAll, profit);
   renderStockBreakdown(stockItems);
   renderMonthSummary();
+}
+
+function renderCostingVsProfit(totalCostingAll, profit){
+  const wrap = document.getElementById('costing-vs-profit');
+  const max = Math.max(totalCostingAll, Math.abs(profit), 1);
+  const roi = totalCostingAll>0 ? (profit/totalCostingAll*100) : 0;
+  wrap.innerHTML = `
+    <div style="margin-bottom:14px;font-size:13px;color:var(--ink-soft);">
+      Total capital invested across every batch you've ever added, versus what you've actually made back so far.
+    </div>
+    <div class="bar-row">
+      <div class="label">Total costing</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(totalCostingAll/max*100).toFixed(1)}%;background:linear-gradient(90deg,#E0637A,#E0A22A);"></div></div>
+      <div class="amt neg">${peso(totalCostingAll)}</div>
+    </div>
+    <div class="bar-row">
+      <div class="label">Total profit</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(Math.abs(profit)/max*100).toFixed(1)}%;"></div></div>
+      <div class="amt ${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${peso(profit)}</div>
+    </div>
+    <div style="margin-top:12px;font-size:12.5px;color:var(--ink-soft);">
+      Return so far: <b style="color:${roi>=0?'var(--good)':'var(--bad)'};">${roi>=0?'+':''}${roi.toFixed(1)}%</b> of capital invested
+    </div>
+  `;
 }
 
 function renderStockBreakdown(stockItems){
@@ -1876,9 +1932,16 @@ function viewInvoice(id){
   if(inv.fee>0) totalsHtml += `<div class="it-row"><span>${escapeHtml(inv.feeLabel)}</span><span>${peso(inv.fee)}</span></div>`;
   totalsHtml += `<div class="it-row it-grand"><span>Total</span><span>${peso(inv.total)}</span></div>`;
   document.getElementById('iv-totals').innerHTML = totalsHtml;
+  document.getElementById('iv-paper-width').value = '80mm';
+  updatePaperWidth();
   document.getElementById('invoice-modal').style.display = 'flex';
 }
 function closeInvoiceModal(){ document.getElementById('invoice-modal').style.display = 'none'; currentInvoiceId = null; }
+
+function updatePaperWidth(){
+  const width = document.getElementById('iv-paper-width').value;
+  document.documentElement.style.setProperty('--receipt-width', width);
+}
 
 function printInvoice(){
   window.print();
