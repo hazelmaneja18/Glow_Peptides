@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glow Peptide — Inventory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pink-wash:#FFF1F7;
+    --pink-soft:#FFE0EE;
+    --pink:#FF9FC7;
+    --pink-deep:#FF6FA6;
+    --purple-soft:#EADCFB;
+    --purple:#9B6DD6;
+    --purple-deep:#7A48C0;
+    --purple-ink:#3E2A63;
+    --ink:#402C56;
+    --ink-soft:#8375A0;
+    --surface:#FFFFFF;
+    --line:#F0DCEA;
+    --good:#4FAE7C;
+    --warn:#E0A22A;
+    --bad:#E0637A;
+    --radius-lg:22px;
+    --radius-md:14px;
+    --radius-sm:9px;
+    --shadow-card: 0 4px 18px rgba(122, 72, 192, 0.08);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(1200px 500px at 100% -10%, var(--purple-soft) 0%, transparent 60%),
+      radial-gradient(1000px 600px at -10% 10%, var(--pink-soft) 0%, transparent 55%),
+      var(--pink-wash);
+    min-height:100vh;
+  }
+  h1,h2,h3,.display{font-family:'Baloo 2',cursive;}
+  .app{display:flex;min-height:100vh;}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:230px;
+    flex-shrink:0;
+    background:linear-gradient(180deg, var(--purple-deep), var(--purple-ink) 85%);
+    color:#fff;
+    padding:26px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .brand{
+    display:flex;align-items:center;gap:10px;
+    margin-bottom:28px;
+    padding:0 6px;
+  }
+  .brand-mark{width:34px;height:34px;flex-shrink:0;}
+  .brand-text{font-family:'Baloo 2';font-weight:700;font-size:19px;line-height:1.05;color:#fff;}
+  .brand-text span{display:block;font-family:'Inter';font-weight:500;font-size:11px;color:#D9C4F5;letter-spacing:.02em;}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;
+    padding:11px 12px;border-radius:12px;
+    color:#E7DAFA;font-weight:600;font-size:14.5px;
+    cursor:pointer;border:none;background:none;text-align:left;width:100%;
+    transition:background .15s ease, color .15s ease;
+  }
+  .nav-item svg{width:18px;height:18px;flex-shrink:0;opacity:.85;}
+  .nav-item:hover{background:rgba(255,255,255,0.08);}
+  .nav-item.active{background:linear-gradient(90deg, var(--pink-deep), var(--pink));color:#fff;box-shadow:0 4px 14px rgba(255,111,166,0.35);}
+  .nav-item.active svg{opacity:1;}
+  .sidebar-footer{margin-top:auto;font-size:11.5px;color:#C7B3E6;padding:0 6px;line-height:1.5;}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;padding:32px 38px 60px;max-width:1180px;}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px;gap:16px;flex-wrap:wrap;}
+  .topbar h1{font-size:26px;margin:0 0 4px;color:var(--purple-ink);}
+  .topbar p{margin:0;color:var(--ink-soft);font-size:14px;}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:'Inter';font-weight:600;font-size:14px;
+    padding:11px 18px;border-radius:12px;border:none;cursor:pointer;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:linear-gradient(120deg, var(--pink-deep), var(--purple));color:#fff;box-shadow:0 6px 16px rgba(255,111,166,0.32);}
+  .btn-primary:hover{box-shadow:0 8px 20px rgba(255,111,166,0.42);}
+  .btn-ghost{background:var(--surface);color:var(--purple-deep);border:1.5px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--purple);}
+  .btn-danger{background:#fff;color:var(--bad);border:1.5px solid #F6D3DB;}
+  .btn-danger:hover{background:#FFF3F5;}
+  .btn-sm{padding:7px 12px;font-size:12.5px;border-radius:9px;}
+
+  /* ---------- Cards / grid ---------- */
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:26px;}
+  .card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:20px 22px;border:1px solid var(--line);}
+  .stat-card .stat-label{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .stat-card .stat-value{font-family:'Baloo 2';font-size:26px;font-weight:700;color:var(--purple-ink);}
+  .stat-card .stat-sub{font-size:12px;margin-top:4px;color:var(--ink-soft);}
+  .stat-card.hero{background:linear-gradient(135deg, var(--pink-deep), var(--purple-deep));color:#fff;}
+  .stat-card.hero .stat-label{color:#FFE1EF;}
+  .stat-card.hero .stat-value{color:#fff;}
+  .stat-card.hero .stat-sub{color:#F6D9EA;}
+  .pos{color:var(--good);} .neg{color:var(--bad);}
+
+  .section-title{font-size:17px;margin:30px 0 14px;color:var(--purple-ink);display:flex;align-items:center;justify-content:space-between;}
+  .section-title .hint{font-family:'Inter';font-weight:500;font-size:12.5px;color:var(--ink-soft);}
+
+  /* low stock */
+  .lowstock-list{display:flex;flex-direction:column;gap:8px;}
+  .lowstock-row{display:flex;align-items:center;justify-content:space-between;background:#FFF7EC;border:1px solid #F7E2BA;border-radius:12px;padding:10px 14px;font-size:13.5px;}
+  .lowstock-row b{color:var(--purple-ink);}
+  .empty-note{color:var(--ink-soft);font-size:13.5px;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:16px;text-align:center;}
+
+  /* ---------- Inventory table ---------- */
+  .table-wrap{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);border:1px solid var(--line);overflow:hidden;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead th{
+    text-align:left;padding:13px 14px;background:var(--pink-wash);
+    color:var(--purple-ink);font-weight:700;font-size:12px;
+    border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  tbody td{padding:12px 14px;border-bottom:1px solid #FAF0F5;vertical-align:middle;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#FFFAFC;}
+  .vial-cell{display:flex;align-items:center;gap:10px;}
+  .vial-cell svg{width:22px;height:30px;flex-shrink:0;}
+  .vial-name{font-weight:700;color:var(--purple-ink);}
+  .vial-batch{font-size:11.5px;color:var(--ink-soft);}
+  .badge{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+  .badge.sold{background:#E7F7EE;color:var(--good);}
+  .badge.stock{background:#EAF1FF;color:#4C7CE0;}
+  .badge.free{background:#FBE9EE;color:var(--bad);}
+  .row-actions{display:flex;gap:6px;}
+  .icon-btn{
+    width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:#fff;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);
+  }
+  .icon-btn:hover{border-color:var(--purple);color:var(--purple-deep);}
+  .icon-btn.del:hover{border-color:var(--bad);color:var(--bad);background:#FFF4F6;}
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{
+    position:fixed;inset:0;background:rgba(62,42,99,0.35);backdrop-filter:blur(2px);
+    display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .modal{background:var(--surface);border-radius:var(--radius-lg);padding:26px 28px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(62,42,99,0.25);max-height:90vh;overflow-y:auto;}
+  .modal h3{margin:0 0 4px;font-size:19px;color:var(--purple-ink);}
+  .modal .modal-sub{margin:0 0 18px;font-size:13px;color:var(--ink-soft);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--purple-ink);margin-bottom:6px;}
+  .field input, .field select{
+    width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);
+    font-family:'Inter';font-size:14px;color:var(--ink);background:#FFFCFE;
+  }
+  .field input:focus, .field select:focus{outline:none;border-color:var(--purple);}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  .modal-danger-icon{width:44px;height:44px;border-radius:50%;background:#FBE9EE;display:flex;align-items:center;justify-content:center;margin-bottom:14px;color:var(--bad);}
+
+  /* ---------- Receipts ---------- */
+  .toggle-group{display:flex;gap:8px;margin-bottom:18px;}
+  .toggle-btn{
+    padding:8px 16px;border-radius:20px;border:1.5px solid var(--line);background:#fff;
+    font-weight:600;font-size:13px;color:var(--ink-soft);cursor:pointer;
+  }
+  .toggle-btn.active{background:linear-gradient(120deg,var(--pink-deep),var(--purple));color:#fff;border-color:transparent;}
+  .bar-row{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:12px;padding:9px 0;font-size:13px;}
+  .bar-row .label{color:var(--ink-soft);font-weight:600;font-size:12.5px;}
+  .bar-track{background:#F5EAF3;border-radius:8px;height:14px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--pink-deep),var(--purple));}
+  .bar-row .amt{text-align:right;font-weight:700;color:var(--purple-ink);}
+
+  .quick-log{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;}
+  .quick-card{
+    flex:1;min-width:190px;background:var(--surface);border:1.5px solid var(--line);border-radius:14px;
+    padding:14px 16px;cursor:pointer;transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .quick-card:hover{border-color:var(--purple);box-shadow:var(--shadow-card);}
+  .quick-card .qc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .quick-card .qc-title{font-weight:700;color:var(--purple-ink);font-size:14px;}
+  .quick-card .qc-price{font-family:'Baloo 2';font-size:18px;color:var(--pink-deep);}
+  .quick-card .qc-sub{font-size:11.5px;color:var(--ink-soft);}
+
+  .receipt-list{display:flex;flex-direction:column;gap:8px;}
+  .receipt-row{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 15px;font-size:13px;}
+  .receipt-row .r-left{display:flex;flex-direction:column;gap:2px;}
+  .receipt-row .r-type{font-weight:700;color:var(--purple-ink);}
+  .receipt-row .r-date{color:var(--ink-soft);font-size:11.5px;}
+  .receipt-row .r-amt{font-weight:700;color:var(--good);}
+
+  /* Personal use */
+  .pu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
+  .pu-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 17px;}
+  .pu-card .pu-name{font-weight:700;color:var(--purple-ink);font-size:14px;margin-bottom:2px;}
+  .pu-card .pu-batch{font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;}
+  .pu-card .pu-cost{font-family:'Baloo 2';font-size:19px;color:var(--bad);}
+  .pu-card .pu-qty{font-size:12px;color:var(--ink-soft);}
+
+  .empty-state{text-align:center;padding:50px 20px;color:var(--ink-soft);}
+  .empty-state svg{width:64px;height:64px;margin-bottom:14px;opacity:.6;}
+  .empty-state h3{color:var(--purple-ink);margin:0 0 6px;}
+  .empty-state p{margin:0 0 16px;font-size:13.5px;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--purple-ink);color:#fff;padding:12px 22px;border-radius:12px;
+    font-size:13.5px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,0.2);
+    z-index:100;opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+
+  @media (max-width:880px){
+    .app{flex-direction:column;}
+    .sidebar{width:100%;flex-direction:row;align-items:center;padding:14px 16px;overflow-x:auto;}
+    .brand{margin-bottom:0;}
+    .brand-text span{display:none;}
+    .sidebar-footer{display:none;}
+    .nav-item{white-space:nowrap;}
+    .main{padding:22px 16px 50px;}
+    .stat-grid{grid-template-columns:repeat(2,1fr);}
+    .table-wrap{overflow-x:auto;}
+    table{min-width:720px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none">
+        <defs><linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#FF9FC7"/><stop offset="1" stop-color="#9B6DD6"/>
+        </linearGradient></defs>
+        <path d="M15 3H25V10L30 17V34C30 36.2 28.2 38 26 38H14C11.8 38 10 36.2 10 34V17L15 10V3Z" fill="url(#brandGrad)"/>
+        <rect x="15" y="3" width="10" height="4" fill="#3E2A63" opacity="0.25"/>
+        <path d="M11 26C11 26 14 24 20 24C26 24 29 26 29 26V34C29 36.2 27.2 38 25 38H15C12.8 38 11 36.2 11 34V26Z" fill="#fff" opacity="0.35"/>
+      </svg>
+      <div class="brand-text">Glow Peptide<span>Inventory &amp; Costing</span></div>
+    </div>
+
+    <button class="nav-item active" data-tab="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-item" data-tab="inventory">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6v5l3 5v6a2 2 0 01-2 2H8a2 2 0 01-2-2v-6l3-5V3z"/><path d="M6 15c2-1 3.5-1.4 6-1.4s4 .4 6 1.4"/></svg>
+      Inventory
+    </button>
+    <button class="nav-item" data-tab="receipts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+      Receipts
+    </button>
+    <button class="nav-item" data-tab="personal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+      Personal Use
+    </button>
+
+    <div class="sidebar-footer">Prices are logged locally to your account and stay saved after refresh.</div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ============ DASHBOARD ============ -->
+    <section id="tab-dashboard">
+      <div class="topbar">
+        <div>
+          <h1>Good day! Here's your glow, at a glance.</h1>
+          <p id="dash-date-sub">Loading your inventory…</p>
+        </div>
+        <button class="btn btn-primary" onclick="openProductModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+          Add product
+        </button>
+      </div>
+
+      <div class="stat-grid">
+        <div class="card stat-card hero">
+          <div class="stat-label">Net profit (sold items)</div>
+          <div class="stat-value" id="stat-profit">₱0.00</div>
+          <div class="stat-sub" id="stat-profit-sub">from vials sold</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Units in stock</div>
+          <div class="stat-value" id="stat-stock">0</div>
+          <div class="stat-sub" id="stat-stock-sub">across all vials</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Units sold</div>
+          <div class="stat-value" id="stat-sold">0</div>
+          <div class="stat-sub" id="stat-sold-sub">total revenue ₱0.00</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Personal use cost</div>
+          <div class="stat-value neg" id="stat-personal">₱0.00</div>
+          <div class="stat-sub" id="stat-personal-sub">not for resale</div>
+        </div>
+      </div>
+
+      <div class="section-title">Low stock alert <span class="hint" id="lowstock-hint">threshold: 2 units</span></div>
+      <div class="lowstock-list" id="lowstock-list"></div>
+
+      <div class="section-title">This month's income summary <span class="hint">product sales + service fees</span></div>
+      <div class="card" id="month-summary-card"><div id="month-summary"></div></div>
+    </section>
+
+    <!-- ============ INVENTORY ============ -->
+    <section id="tab-inventory" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h1>Inventory</h1>
+          <p>Every vial, its cost, and where it landed.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openProductModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+          Add product
+        </button>
+      </div>
+
+      <div class="toggle-group" id="inv-filters">
+        <button class="toggle-btn active" data-filter="All">All</button>
+        <button class="toggle-btn" data-filter="Available Stock">Available Stock</button>
+        <button class="toggle-btn" data-filter="Sold">Sold</button>
+        <button class="toggle-btn" data-filter="Personal Use / Free">Personal Use / Free</button>
+      </div>
+
+      <div class="table-wrap" id="inventory-table-wrap">
+        <!-- table injected -->
+      </div>
+    </section>
+
+    <!-- ============ RECEIPTS ============ -->
+    <section id="tab-receipts" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h1>Receipts</h1>
+          <p>Log service fees and see your day &amp; month totals.</p>
+        </div>
+      </div>
+
+      <div class="quick-log">
+        <div class="quick-card" onclick="quickReceipt('Everyday Subq', 150)">
+          <div class="qc-top"><span class="qc-title">Everyday Subq</span><span class="qc-price">₱150</span></div>
+          <div class="qc-sub">Tap to log today's subq fee</div>
+        </div>
+        <div class="quick-card" onclick="quickReceipt('Tirzepatide Set', 100)">
+          <div class="qc-top"><span class="qc-title">Tirzepatide Set</span><span class="qc-price">₱100</span></div>
+          <div class="qc-sub">Tap to log today's set fee</div>
+        </div>
+        <div class="quick-card" onclick="openReceiptModal()">
+          <div class="qc-top"><span class="qc-title">Custom receipt</span><span class="qc-price">+</span></div>
+          <div class="qc-sub">Log any amount, any date</div>
+        </div>
+      </div>
+
+      <div class="toggle-group">
+        <button class="toggle-btn active" data-view="daily">Daily summary</button>
+        <button class="toggle-btn" data-view="monthly">Monthly summary</button>
+      </div>
+      <div class="card" style="margin-bottom:24px;"><div id="summary-bars"></div></div>
+
+      <div class="section-title">All receipts</div>
+      <div class="receipt-list" id="receipt-list"></div>
+    </section>
+
+    <!-- ============ PERSONAL USE ============ -->
+    <section id="tab-personal" style="display:none;">
+      <div class="topbar">
+        <div>
+          <h1>Personal use</h1>
+          <p>Vials kept for yourself — tracked as cost, not sales.</p>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:20px;">
+        <div class="stat-label">Total personal-use cost</div>
+        <div class="stat-value neg" id="pu-total" style="font-size:28px;">₱0.00</div>
+        <div class="stat-sub">This is capital spent with no matching revenue — good to know for true profit.</div>
+      </div>
+      <div class="pu-grid" id="pu-grid"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Product Modal -->
+<div class="modal-backdrop" id="product-modal" style="display:none;">
+  <div class="modal">
+    <h3 id="pm-title">Add a product</h3>
+    <p class="modal-sub">Fill in the batch details — this saves to your inventory instantly.</p>
+    <div class="field">
+      <label>Vial / product name</label>
+      <input list="vial-options" id="pm-name" placeholder="e.g. Tirzepatide 30mg">
+      <datalist id="vial-options">
+        <option value="Tirzepatide 30mg"></option>
+        <option value="Tirzepatide 15mg"></option>
+        <option value="KPV 10mg"></option>
+        <option value="GHK-CU 100mg"></option>
+        <option value="HHB 10ml"></option>
+        <option value="SuperHumanBlend 10ml"></option>
+        <option value="Super Shredder 10ml"></option>
+        <option value="Pharma Bac Ampoule 10ml"></option>
+        <option value="BAC Water 10ml"></option>
+        <option value="BAC Water 5ml"></option>
+        <option value="BAC Water 3ml"></option>
+      </datalist>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Batch label</label><input id="pm-batch" placeholder="Batch 1"></div>
+      <div class="field"><label>Quantity</label><input id="pm-qty" type="number" min="1" value="1"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Cost price / unit (₱)</label><input id="pm-cost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Selling price / unit (₱)</label><input id="pm-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Status</label>
+        <select id="pm-status">
+          <option value="Available Stock">Available Stock</option>
+          <option value="Sold">Sold</option>
+          <option value="Personal Use / Free">Personal Use / Free</option>
+        </select>
+      </div>
+      <div class="field"><label>Date</label><input id="pm-date" type="date"></div>
+    </div>
+    <div class="field"><label>Tier / note (optional)</label><input id="pm-tier" placeholder="e.g. Top Tier, Promo"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeProductModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProduct()">Save product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal-backdrop" id="delete-modal" style="display:none;">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-danger-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/><path d="M10 11v6M14 11v6"/></svg>
+    </div>
+    <h3>Delete this permanently?</h3>
+    <p class="modal-sub">This can't be undone — the entry will be removed from your inventory for good.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">Keep it</button>
+      <button class="btn btn-danger" onclick="confirmDelete()">Delete permanently</button>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt Modal -->
+<div class="modal-backdrop" id="receipt-modal" style="display:none;">
+  <div class="modal" style="max-width:400px;">
+    <h3>Log a receipt</h3>
+    <p class="modal-sub">Track any income — a sale, a service fee, anything.</p>
+    <div class="field"><label>Description</label><input id="rm-desc" placeholder="e.g. Everyday Subq"></div>
+    <div class="field-row">
+      <div class="field"><label>Amount (₱)</label><input id="rm-amount" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Date</label><input id="rm-date" type="date"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeReceiptModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveReceipt()">Save receipt</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= STATE ================= */
+let products = [];
+let receipts = [];
+let editingId = null;
+let deleteTarget = null; // {type:'product'|'receipt', id}
+let invFilter = 'All';
+let summaryView = 'daily';
+const LOW_STOCK_THRESHOLD = 2;
+
+/* ================= STORAGE ================= */
+async function loadData(){
+  try{
+    const p = await window.storage.get('gp_products', false);
+    products = p ? JSON.parse(p.value) : [];
+  }catch(e){ products = []; }
+  try{
+    const r = await window.storage.get('gp_receipts', false);
+    receipts = r ? JSON.parse(r.value) : [];
+  }catch(e){ receipts = []; }
+  renderAll();
+  document.getElementById('dash-date-sub').textContent = new Date().toLocaleDateString('en-PH',{weekday:'long', year:'numeric', month:'long', day:'numeric'});
+}
+
+async function saveProducts(){
+  try{ await window.storage.set('gp_products', JSON.stringify(products), false); }
+  catch(e){ showToast('Could not save — please try again'); }
+}
+async function saveReceipts(){
+  try{ await window.storage.set('gp_receipts', JSON.stringify(receipts), false); }
+  catch(e){ showToast('Could not save — please try again'); }
+}
+
+/* ================= HELPERS ================= */
+const peso = n => '₱' + (Number(n)||0).toLocaleString('en-PH',{minimumFractionDigits:2, maximumFractionDigits:2});
+const todayISO = () => new Date().toISOString().slice(0,10);
+function uid(){ return 'id_'+Date.now()+'_'+Math.floor(Math.random()*10000); }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+function vialIcon(name){
+  const isAmpoule = /ampoule/i.test(name);
+  if(isAmpoule){
+    return `<svg viewBox="0 0 24 32" fill="none"><path d="M9 2h6v6l3 4v16a1 1 0 01-1 1H7a1 1 0 01-1-1V12l3-4V2z" fill="url(#g1)"/><rect x="9" y="2" width="6" height="3" fill="#7A48C0"/><defs><linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FF9FC7"/><stop offset="1" stop-color="#9B6DD6"/></linearGradient></defs></svg>`;
+  }
+  return `<svg viewBox="0 0 24 32" fill="none"><rect x="6" y="2" width="12" height="5" rx="1.5" fill="#7A48C0"/><path d="M7 7h10v20a3 3 0 01-3 3h-4a3 3 0 01-3-3V7z" fill="url(#g2)"/><path d="M7 18c1.6-.9 2.8-1.2 5-1.2s3.4.3 5 1.2v6.8a3 3 0 01-3 3h-4a3 3 0 01-3-3V18z" fill="#fff" opacity=".3"/><defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FF9FC7"/><stop offset="1" stop-color="#9B6DD6"/></linearGradient></defs></svg>`;
+}
+
+/* ================= NAV ================= */
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ['dashboard','inventory','receipts','personal'].forEach(t=>{
+      document.getElementById('tab-'+t).style.display = (t===btn.dataset.tab) ? '' : 'none';
+    });
+  });
+});
+
+/* ================= PRODUCT MODAL ================= */
+function openProductModal(id){
+  editingId = id || null;
+  document.getElementById('pm-title').textContent = id ? 'Edit product' : 'Add a product';
+  if(id){
+    const p = products.find(x=>x.id===id);
+    document.getElementById('pm-name').value = p.name;
+    document.getElementById('pm-batch').value = p.batch;
+    document.getElementById('pm-qty').value = p.qty;
+    document.getElementById('pm-cost').value = p.cost;
+    document.getElementById('pm-price').value = p.price;
+    document.getElementById('pm-status').value = p.status;
+    document.getElementById('pm-date').value = p.date;
+    document.getElementById('pm-tier').value = p.tier || '';
+  } else {
+    ['pm-name','pm-batch','pm-cost','pm-price','pm-tier'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('pm-qty').value = 1;
+    document.getElementById('pm-status').value = 'Available Stock';
+    document.getElementById('pm-date').value = todayISO();
+  }
+  document.getElementById('product-modal').style.display = 'flex';
+}
+function closeProductModal(){ document.getElementById('product-modal').style.display='none'; editingId=null; }
+
+async function saveProduct(){
+  const name = document.getElementById('pm-name').value.trim();
+  const batch = document.getElementById('pm-batch').value.trim() || 'Batch 1';
+  const qty = parseFloat(document.getElementById('pm-qty').value) || 0;
+  const cost = parseFloat(document.getElementById('pm-cost').value) || 0;
+  const price = parseFloat(document.getElementById('pm-price').value) || 0;
+  const status = document.getElementById('pm-status').value;
+  const date = document.getElementById('pm-date').value || todayISO();
+  const tier = document.getElementById('pm-tier').value.trim();
+
+  if(!name || qty<=0){ showToast('Please add a product name and quantity'); return; }
+
+  if(editingId){
+    const p = products.find(x=>x.id===editingId);
+    Object.assign(p, {name,batch,qty,cost,price,status,date,tier});
+  } else {
+    products.push({id:uid(), name, batch, qty, cost, price, status, date, tier});
+  }
+  await saveProducts();
+  closeProductModal();
+  renderAll();
+  showToast(editingId ? 'Product updated' : 'Product added to inventory');
+}
+
+/* ================= DELETE ================= */
+function askDelete(type, id){
+  deleteTarget = {type, id};
+  document.getElementById('delete-modal').style.display = 'flex';
+}
+function closeDeleteModal(){ document.getElementById('delete-modal').style.display='none'; deleteTarget=null; }
+async function confirmDelete(){
+  if(!deleteTarget) return;
+  if(deleteTarget.type==='product'){
+    products = products.filter(p=>p.id!==deleteTarget.id);
+    await saveProducts();
+  } else {
+    receipts = receipts.filter(r=>r.id!==deleteTarget.id);
+    await saveReceipts();
+  }
+  closeDeleteModal();
+  renderAll();
+  showToast('Deleted permanently');
+}
+
+/* ================= RECEIPTS ================= */
+function openReceiptModal(){
+  document.getElementById('rm-desc').value='';
+  document.getElementById('rm-amount').value='';
+  document.getElementById('rm-date').value=todayISO();
+  document.getElementById('receipt-modal').style.display='flex';
+}
+function closeReceiptModal(){ document.getElementById('receipt-modal').style.display='none'; }
+async function saveReceipt(){
+  const desc = document.getElementById('rm-desc').value.trim();
+  const amount = parseFloat(document.getElementById('rm-amount').value) || 0;
+  const date = document.getElementById('rm-date').value || todayISO();
+  if(!desc || amount<=0){ showToast('Add a description and amount'); return; }
+  receipts.push({id:uid(), desc, amount, date});
+  await saveReceipts();
+  closeReceiptModal();
+  renderAll();
+  showToast('Receipt logged');
+}
+async function quickReceipt(desc, amount){
+  receipts.push({id:uid(), desc, amount, date:todayISO()});
+  await saveReceipts();
+  renderAll();
+  showToast(desc+' logged — '+peso(amount));
+}
+
+/* ================= INVENTORY FILTER ================= */
+document.getElementById('inv-filters').addEventListener('click', e=>{
+  const b = e.target.closest('.toggle-btn');
+  if(!b) return;
+  document.querySelectorAll('#inv-filters .toggle-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  invFilter = b.dataset.filter;
+  renderInventory();
+});
+
+document.querySelectorAll('#tab-receipts .toggle-group')[0].addEventListener('click', e=>{
+  const b = e.target.closest('.toggle-btn');
+  if(!b) return;
+  document.querySelectorAll('#tab-receipts .toggle-group .toggle-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  summaryView = b.dataset.view;
+  renderReceiptSummary();
+});
+
+/* ================= RENDER: DASHBOARD ================= */
+function renderDashboard(){
+  const sold = products.filter(p=>p.status==='Sold');
+  const stockItems = products.filter(p=>p.status==='Available Stock');
+  const personal = products.filter(p=>p.status==='Personal Use / Free');
+
+  const revenue = sold.reduce((s,p)=>s+p.qty*p.price,0);
+  const soldCost = sold.reduce((s,p)=>s+p.qty*p.cost,0);
+  const profit = revenue - soldCost;
+  const stockQty = stockItems.reduce((s,p)=>s+p.qty,0);
+  const soldQty = sold.reduce((s,p)=>s+p.qty,0);
+  const personalCost = personal.reduce((s,p)=>s+p.qty*p.cost,0);
+
+  document.getElementById('stat-profit').textContent = peso(profit);
+  document.getElementById('stat-profit-sub').textContent = `revenue ${peso(revenue)} minus cost ${peso(soldCost)}`;
+  document.getElementById('stat-stock').textContent = stockQty;
+  document.getElementById('stat-stock-sub').textContent = `${stockItems.length} line item${stockItems.length===1?'':'s'} available`;
+  document.getElementById('stat-sold').textContent = soldQty;
+  document.getElementById('stat-sold-sub').textContent = `total revenue ${peso(revenue)}`;
+  document.getElementById('stat-personal').textContent = peso(personalCost);
+  document.getElementById('stat-personal-sub').textContent = `${personal.reduce((s,p)=>s+p.qty,0)} unit(s), not for resale`;
+
+  // low stock
+  const low = stockItems.filter(p=>p.qty<=LOW_STOCK_THRESHOLD);
+  const lowWrap = document.getElementById('lowstock-list');
+  if(low.length===0){
+    lowWrap.innerHTML = `<div class="empty-note">Nothing running low right now — stock levels look healthy.</div>`;
+  } else {
+    lowWrap.innerHTML = low.map(p=>`
+      <div class="lowstock-row">
+        <span><b>${escapeHtml(p.name)}</b> — ${escapeHtml(p.batch)}</span>
+        <span>${p.qty} unit${p.qty===1?'':'s'} left</span>
+      </div>`).join('');
+  }
+
+  renderMonthSummary();
+}
+
+function renderMonthSummary(){
+  const now = new Date();
+  const ym = now.toISOString().slice(0,7);
+  const monthLabel = now.toLocaleDateString('en-PH',{month:'long', year:'numeric'});
+
+  const productIncome = products.filter(p=>p.status==='Sold' && (p.date||'').slice(0,7)===ym)
+    .reduce((s,p)=>s+p.qty*p.price,0);
+  const feeIncome = receipts.filter(r=>(r.date||'').slice(0,7)===ym)
+    .reduce((s,r)=>s+r.amount,0);
+  const total = productIncome + feeIncome;
+  const max = Math.max(productIncome, feeIncome, 1);
+
+  document.getElementById('month-summary').innerHTML = `
+    <div style="margin-bottom:14px;font-size:13px;color:var(--ink-soft);">${monthLabel} — total income <b style="color:var(--purple-ink)">${peso(total)}</b></div>
+    <div class="bar-row"><div class="label">Product sales</div><div class="bar-track"><div class="bar-fill" style="width:${(productIncome/max*100).toFixed(1)}%"></div></div><div class="amt">${peso(productIncome)}</div></div>
+    <div class="bar-row"><div class="label">Service fees</div><div class="bar-track"><div class="bar-fill" style="width:${(feeIncome/max*100).toFixed(1)}%"></div></div><div class="amt">${peso(feeIncome)}</div></div>
+  `;
+}
+
+/* ================= RENDER: INVENTORY ================= */
+function renderInventory(){
+  const wrap = document.getElementById('inventory-table-wrap');
+  const list = products
+    .filter(p=> invFilter==='All' ? true : p.status===invFilter)
+    .sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+
+  if(list.length===0){
+    wrap.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 32" fill="none" style="margin:0 auto;"><rect x="6" y="2" width="12" height="5" rx="1.5" fill="#D9C4F5"/><path d="M7 7h10v20a3 3 0 01-3 3h-4a3 3 0 01-3-3V7z" fill="#EADCFB"/></svg>
+      <h3>No products here yet</h3>
+      <p>Add your first vial to start tracking cost and profit.</p>
+      <button class="btn btn-primary" onclick="openProductModal()">Add product</button>
+    </div>`;
+    return;
+  }
+
+  const rows = list.map(p=>{
+    const totalCost = p.qty*p.cost;
+    const totalSales = p.status==='Sold' ? p.qty*p.price : 0;
+    const profit = p.status==='Personal Use / Free' ? -totalCost : (totalSales-totalCost);
+    const badgeClass = p.status==='Sold' ? 'sold' : (p.status==='Available Stock' ? 'stock' : 'free');
+    return `<tr>
+      <td><div class="vial-cell">${vialIcon(p.name)}<div><div class="vial-name">${escapeHtml(p.name)}</div><div class="vial-batch">${escapeHtml(p.batch)}${p.tier?' · '+escapeHtml(p.tier):''}</div></div></div></td>
+      <td>${p.qty}</td>
+      <td>${peso(p.cost)}</td>
+      <td>${p.status==='Personal Use / Free' ? '—' : peso(p.price)}</td>
+      <td>${peso(totalCost)}</td>
+      <td>${peso(totalSales)}</td>
+      <td class="${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${peso(profit)}</td>
+      <td><span class="badge ${badgeClass}">${p.status}</span></td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" title="Edit" onclick="openProductModal('${p.id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
+          <button class="icon-btn del" title="Delete permanently" onclick="askDelete('product','${p.id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th>Product &amp; batch</th><th>Qty</th><th>Cost/unit</th><th>Selling price</th>
+      <th>Total cost</th><th>Total sales</th><th>Profit</th><th>Status</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+/* ================= RENDER: RECEIPTS ================= */
+function renderReceiptSummary(){
+  // combine product sales + fee receipts into unified income events
+  const events = [];
+  products.filter(p=>p.status==='Sold').forEach(p=>{
+    events.push({date:p.date, amount:p.qty*p.price});
+  });
+  receipts.forEach(r=> events.push({date:r.date, amount:r.amount}));
+
+  const groups = {};
+  events.forEach(e=>{
+    const key = summaryView==='daily' ? (e.date || 'Unknown') : (e.date||'').slice(0,7) || 'Unknown';
+    groups[key] = (groups[key]||0) + e.amount;
+  });
+  const keys = Object.keys(groups).sort().reverse().slice(0,8);
+  const max = Math.max(...keys.map(k=>groups[k]), 1);
+
+  const box = document.getElementById('summary-bars');
+  if(keys.length===0){
+    box.innerHTML = `<div class="empty-note">No income logged yet — sell a vial or log a service fee to see your summary.</div>`;
+    return;
+  }
+  box.innerHTML = keys.map(k=>{
+    const label = summaryView==='daily'
+      ? new Date(k).toLocaleDateString('en-PH',{month:'short', day:'numeric'})
+      : new Date(k+'-01').toLocaleDateString('en-PH',{month:'long', year:'numeric'});
+    return `<div class="bar-row"><div class="label">${label}</div><div class="bar-track"><div class="bar-fill" style="width:${(groups[k]/max*100).toFixed(1)}%"></div></div><div class="amt">${peso(groups[k])}</div></div>`;
+  }).join('');
+}
+
+function renderReceiptList(){
+  const list = document.getElementById('receipt-list');
+  const sorted = [...receipts].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(sorted.length===0){
+    list.innerHTML = `<div class="empty-note">No custom receipts logged yet.</div>`;
+    return;
+  }
+  list.innerHTML = sorted.map(r=>`
+    <div class="receipt-row">
+      <div class="r-left"><span class="r-type">${escapeHtml(r.desc)}</span><span class="r-date">${formatDate(r.date)}</span></div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span class="r-amt">+${peso(r.amount)}</span>
+        <button class="icon-btn del" title="Delete permanently" onclick="askDelete('receipt','${r.id}')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+/* ================= RENDER: PERSONAL USE ================= */
+function renderPersonal(){
+  const personal = products.filter(p=>p.status==='Personal Use / Free');
+  const total = personal.reduce((s,p)=>s+p.qty*p.cost,0);
+  document.getElementById('pu-total').textContent = peso(total);
+
+  const grid = document.getElementById('pu-grid');
+  if(personal.length===0){
+    grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1;">No personal-use items logged.</div>`;
+    return;
+  }
+  grid.innerHTML = personal.map(p=>`
+    <div class="pu-card">
+      <div class="pu-name">${escapeHtml(p.name)}</div>
+      <div class="pu-batch">${escapeHtml(p.batch)}</div>
+      <div class="pu-cost">${peso(p.qty*p.cost)}</div>
+      <div class="pu-qty">${p.qty} unit${p.qty===1?'':'s'} · ${peso(p.cost)} each</div>
+    </div>`).join('');
+}
+
+/* ================= UTIL ================= */
+function escapeHtml(s){
+  return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function formatDate(d){
+  if(!d) return '';
+  return new Date(d).toLocaleDateString('en-PH',{month:'short', day:'numeric', year:'numeric'});
+}
+
+function renderAll(){
+  renderDashboard();
+  renderInventory();
+  renderReceiptSummary();
+  renderReceiptList();
+  renderPersonal();
+}
+
+loadData();
+</script>
+</body>
+</html>
