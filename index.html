@@ -365,7 +365,7 @@
       <div class="topbar">
         <div>
           <h1>Inventory</h1>
-          <p>Every vial, its cost, and where it landed. Tap the sell icon to record a sale.</p>
+          <p>Total sales &amp; profit here show potential value at your listed price. Tap the sell icon to record an actual sale.</p>
         </div>
         <button class="btn btn-primary" onclick="openProductModal()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
@@ -546,9 +546,9 @@
       <label class="checkbox-label"><input type="checkbox" id="pm-bac-include" onchange="toggleBacWaterField()"> Includes BAC Water</label>
     </div>
     <div class="field" id="pm-bac-amount-wrap" style="display:none;">
-      <label>BAC Water cost for this batch (₱)</label>
+      <label>BAC Water cost per unit (₱)</label>
       <input id="pm-bac-amount" type="number" min="0" step="0.01" placeholder="0.00">
-      <div class="field-note">Added on top as a flat cost for this batch — not multiplied by quantity.</div>
+      <div class="field-note">Added per unit — this gets multiplied by quantity automatically.</div>
     </div>
     <div class="field-row">
       <div class="field">
@@ -887,15 +887,16 @@ const peso = n => '₱' + (Number(n)||0).toLocaleString('en-PH',{minimumFraction
 const todayISO = () => new Date().toISOString().slice(0,10);
 function uid(){ return 'id_'+Date.now()+'_'+Math.floor(Math.random()*10000); }
 
-/* Total cost for a product line = base cost (qty x cost/unit) plus a flat BAC Water addition, if included */
-function costTotal(p){
-  const base = p.qty*p.cost;
-  const bac = (p.bacWater && p.bacWater.included) ? (p.bacWater.amount||0) : 0;
-  return base + bac;
-}
-/* Effective cost per unit, for display, once BAC Water is folded in */
+/* Effective cost per unit, once BAC Water (charged per unit) is folded in */
 function costPerUnitEffective(p){
-  return p.qty>0 ? costTotal(p)/p.qty : p.cost;
+  const bac = (p.bacWater && p.bacWater.included) ? (p.bacWater.amount||0) : 0;
+  return p.cost + bac;
+}
+/* Total cost for a product line = effective cost/unit (base + BAC) x quantity.
+   Because BAC Water is a per-unit rate, this scales correctly no matter how much
+   of the batch has already been sold — no separate proration needed. */
+function costTotal(p){
+  return p.qty * costPerUnitEffective(p);
 }
 
 function showToast(msg){
@@ -1087,7 +1088,6 @@ async function saveSale(){
   if(qty<=0){ showToast('Enter a quantity to sell'); return; }
   if(qty>p.qty){ showToast(`Only ${p.qty} unit(s) available`); return; }
 
-  const preQty = p.qty;
   const unitCost = costPerUnitEffective(p);
   sales.push({
     id: uid(),
@@ -1099,13 +1099,6 @@ async function saveSale(){
     buyer, date
   });
 
-  // The units just sold already carried their share of any flat BAC Water cost
-  // (baked into unitCost above) — shrink what's left so the remaining stock
-  // isn't charged that same cost a second time.
-  if(p.bacWater && p.bacWater.included && preQty > 0){
-    const remainingFraction = (preQty - qty) / preQty;
-    p.bacWater.amount = p.bacWater.amount * remainingFraction;
-  }
   p.qty -= qty;
 
   await saveProductsAndSales();
@@ -1436,13 +1429,13 @@ function renderInventory(){
 
   const rows = list.map(p=>{
     const totalCost = costTotal(p);
-    const totalSales = p.status==='Sold' ? p.qty*p.price : 0;
+    const totalSales = p.qty*p.price;
     const profit = p.status==='Personal Use / Free' ? -totalCost : (totalSales-totalCost);
     const badgeClass = p.status==='Sold' ? 'sold' : (p.status==='Available Stock' ? 'stock' : 'free');
     const hasBac = p.bacWater && p.bacWater.included;
     const category = p.category || 'Uncategorized';
     return `<tr>
-      <td><div class="vial-cell">${vialIcon(p.name)}<div><div class="vial-name">${escapeHtml(p.name)}</div><div class="vial-batch"><span class="cat-tag cat-${catClass(category)}">${escapeHtml(category)}</span>${escapeHtml(p.batch)}${p.tier?' · '+escapeHtml(p.tier):''}${hasBac?' <span class="bac-tag">+BAC Water '+peso(p.bacWater.amount)+'</span>':''}</div></div></div></td>
+      <td><div class="vial-cell">${vialIcon(p.name)}<div><div class="vial-name">${escapeHtml(p.name)}</div><div class="vial-batch"><span class="cat-tag cat-${catClass(category)}">${escapeHtml(category)}</span>${escapeHtml(p.batch)}${p.tier?' · '+escapeHtml(p.tier):''}${hasBac?' <span class="bac-tag">+BAC Water '+peso(p.bacWater.amount)+'/unit</span>':''}</div></div></div></td>
       <td>${p.qty}</td>
       <td>${peso(p.cost)}${hasBac?' <span style="color:var(--ink-soft);font-size:11px;">('+peso(costPerUnitEffective(p))+' w/ BAC)</span>':''}</td>
       <td>${p.status==='Personal Use / Free' ? '—' : peso(p.price)}</td>
@@ -1593,7 +1586,7 @@ function renderPersonal(){
       <div class="pu-name">${escapeHtml(p.name)}${hasBac?' <span class="bac-tag">+BAC Water</span>':''}</div>
       <div class="pu-batch">${escapeHtml(p.batch)}</div>
       <div class="pu-cost">${peso(costTotal(p))}</div>
-      <div class="pu-qty">${p.qty} unit${p.qty===1?'':'s'} · ${peso(p.cost)} each${hasBac?' + '+peso(p.bacWater.amount)+' BAC Water':''}</div>
+      <div class="pu-qty">${p.qty} unit${p.qty===1?'':'s'} · ${peso(p.cost)} each${hasBac?' + '+peso(p.bacWater.amount)+'/unit BAC Water':''}</div>
     </div>`;
   }).join('');
 }
