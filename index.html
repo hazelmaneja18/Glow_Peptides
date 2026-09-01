@@ -668,14 +668,13 @@
     <div id="cart-items-list" style="margin-bottom:14px;"></div>
     <div class="field"><label>Sold to (buyer name)</label><input id="cart-buyer" placeholder="e.g. Maria Santos"></div>
     <div class="field"><label>Date sold</label><input id="cart-date" type="date"></div>
-    <div class="field bacwater-field">
-      <label class="checkbox-label"><input type="checkbox" id="cart-fee-subq" onchange="updateCartTotal()"> Add Everyday Subq fee (+₱150)</label>
-    </div>
-    <div class="field bacwater-field">
-      <label class="checkbox-label"><input type="checkbox" id="cart-fee-set" onchange="updateCartTotal()"> Add Tirzepatide Set fee (+₱100)</label>
+    <div class="field-row">
+      <div class="field"><label>Everyday Subq fee — qty (₱150 each)</label><input id="cart-fee-subq-qty" type="number" min="0" step="1" value="0" oninput="updateCartTotal()"></div>
+      <div class="field"><label>Tirzepatide Set fee — qty (₱100 each)</label><input id="cart-fee-set-qty" type="number" min="0" step="1" value="0" oninput="updateCartTotal()"></div>
     </div>
     <div class="field-note" id="cart-total-preview" style="font-weight:700;color:var(--purple-ink);font-size:15px;margin-bottom:6px;"></div>
     <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeCartModal()">Cancel</button>
       <button class="btn btn-ghost" onclick="clearCart()">Clear cart</button>
       <button class="btn btn-primary" onclick="completeCartSale()">Complete sale</button>
     </div>
@@ -1238,8 +1237,8 @@ function openCartModal(){
   if(cart.length===0){ showToast('Your cart is empty — add items from Inventory first'); return; }
   document.getElementById('cart-buyer').value = '';
   document.getElementById('cart-date').value = todayISO();
-  document.getElementById('cart-fee-subq').checked = false;
-  document.getElementById('cart-fee-set').checked = false;
+  document.getElementById('cart-fee-subq-qty').value = 0;
+  document.getElementById('cart-fee-set-qty').value = 0;
   renderCartItems();
   updateCartTotal();
   document.getElementById('cart-modal').style.display = 'flex';
@@ -1279,7 +1278,9 @@ function clearCart(){
 
 function updateCartTotal(){
   const subtotal = cart.reduce((s,c)=>s+c.qty*c.price,0);
-  const fee = (document.getElementById('cart-fee-subq').checked?150:0) + (document.getElementById('cart-fee-set').checked?100:0);
+  const subqQty = parseInt(document.getElementById('cart-fee-subq-qty').value) || 0;
+  const setQty = parseInt(document.getElementById('cart-fee-set-qty').value) || 0;
+  const fee = subqQty*150 + setQty*100;
   document.getElementById('cart-total-preview').textContent = `Total: ${peso(subtotal+fee)}`;
 }
 
@@ -1287,12 +1288,12 @@ async function completeCartSale(){
   if(cart.length===0){ closeCartModal(); return; }
   const buyer = document.getElementById('cart-buyer').value.trim() || 'Not specified';
   const date = document.getElementById('cart-date').value || todayISO();
-  const addSubq = document.getElementById('cart-fee-subq').checked;
-  const addSet = document.getElementById('cart-fee-set').checked;
-  const fee = (addSubq?150:0) + (addSet?100:0);
+  const subqQty = parseInt(document.getElementById('cart-fee-subq-qty').value) || 0;
+  const setQty = parseInt(document.getElementById('cart-fee-set-qty').value) || 0;
+  const fee = subqQty*150 + setQty*100;
   const feeLabels = [];
-  if(addSubq) feeLabels.push('Everyday Subq +₱150');
-  if(addSet) feeLabels.push('Tirzepatide Set +₱100');
+  if(subqQty>0) feeLabels.push(`Everyday Subq ×${subqQty} +₱${subqQty*150}`);
+  if(setQty>0) feeLabels.push(`Tirzepatide Set ×${setQty} +₱${setQty*100}`);
   const feeLabel = feeLabels.join(' · ');
 
   // Validate stock is still available for every line before committing anything
