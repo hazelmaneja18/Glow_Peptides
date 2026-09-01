@@ -190,6 +190,58 @@
   .manage-list{display:flex;flex-direction:column;gap:8px;}
   .manage-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:12px;font-size:13.5px;}
   .manage-row .manage-row-label{font-weight:600;color:var(--purple-ink);}
+
+  /* Cart */
+  .cart-item-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #FAF0F5;font-size:13.5px;}
+  .cart-item-row:last-child{border-bottom:none;}
+  .cart-item-row .ci-name{font-weight:700;color:var(--purple-ink);}
+  .cart-item-row .ci-sub{font-size:11.5px;color:var(--ink-soft);}
+  .cart-item-row .ci-right{display:flex;align-items:center;gap:10px;}
+  .cart-fab{
+    position:fixed;bottom:26px;right:26px;z-index:40;
+    display:flex;align-items:center;gap:8px;
+    background:linear-gradient(120deg,var(--pink-deep),var(--purple));
+    color:#fff;border:none;border-radius:30px;padding:14px 20px 14px 16px;
+    box-shadow:0 10px 26px rgba(122,72,192,0.35);cursor:pointer;
+    font-family:'Inter';font-weight:700;font-size:14px;
+  }
+  .cart-fab svg{width:20px;height:20px;}
+  .cart-fab .cart-badge{
+    background:#fff;color:var(--pink-deep);border-radius:50%;
+    width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;
+  }
+
+  /* Invoices list */
+  .invoice-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;}
+  .invoice-card .inv-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}
+  .invoice-card .inv-buyer{font-weight:700;color:var(--purple-ink);font-size:14.5px;}
+  .invoice-card .inv-date{font-size:11.5px;color:var(--ink-soft);}
+  .invoice-card .inv-items-summary{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;}
+  .invoice-card .inv-total{font-family:'Baloo 2';font-size:17px;color:var(--pink-deep);}
+  .invoice-card .inv-actions{display:flex;gap:8px;}
+
+  /* Invoice print layout */
+  .invoice-brand{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .invoice-brand-text{font-family:'Baloo 2';font-weight:700;font-size:18px;color:var(--purple-ink);}
+  .invoice-brand-text span{display:block;font-family:'Inter';font-weight:500;font-size:10.5px;color:var(--ink-soft);}
+  .invoice-meta{display:flex;justify-content:space-between;margin-bottom:14px;font-size:12.5px;}
+  .invoice-meta span{display:block;color:var(--ink-soft);font-size:11px;}
+  .invoice-meta b{color:var(--purple-ink);}
+  .invoice-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:12px;}
+  .invoice-table th{text-align:left;padding:6px 4px;border-bottom:2px solid var(--purple-ink);color:var(--purple-ink);font-size:11px;}
+  .invoice-table td{padding:6px 4px;border-bottom:1px solid #F0DCEA;}
+  .invoice-totals{display:flex;flex-direction:column;gap:4px;font-size:13px;margin-bottom:10px;}
+  .invoice-totals .it-row{display:flex;justify-content:space-between;}
+  .invoice-totals .it-grand{font-weight:800;font-size:16px;color:var(--purple-ink);border-top:1px solid var(--line);padding-top:6px;margin-top:4px;}
+  .invoice-footer{text-align:center;font-size:12px;color:var(--ink-soft);margin-top:6px;}
+
+  @media print {
+    body *{visibility:hidden;}
+    #invoice-print-area, #invoice-print-area *{visibility:visible;}
+    #invoice-print-area{position:absolute;top:0;left:0;width:100%;padding:20px;}
+  }
+
   #auth-gate{display:none;}
   .field-row{display:flex;gap:12px;}
   .field-row .field{flex:1;}
@@ -398,6 +450,18 @@
         </div>
       </div>
 
+      <div class="toggle-group" id="sh-filter-mode">
+        <button class="toggle-btn active" data-mode="all">All time</button>
+        <button class="toggle-btn" data-mode="day">By day</button>
+        <button class="toggle-btn" data-mode="month">By month</button>
+      </div>
+      <div class="field" id="sh-filter-day-wrap" style="display:none;max-width:220px;">
+        <input id="sh-filter-day" type="date" onchange="renderSalesHistory()">
+      </div>
+      <div class="field" id="sh-filter-month-wrap" style="display:none;max-width:220px;">
+        <input id="sh-filter-month" type="month" onchange="renderSalesHistory()">
+      </div>
+
       <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
         <div class="card stat-card">
           <div class="stat-label">Units sold</div>
@@ -451,6 +515,9 @@
       </div>
       <div class="card" style="margin-bottom:24px;"><div id="summary-bars"></div></div>
 
+      <div class="section-title">Invoices <span class="hint">from cart checkouts — view, print, or send to a buyer</span></div>
+      <div id="invoice-list" style="margin-bottom:28px;"></div>
+
       <div class="section-title">All receipts</div>
       <div class="receipt-list" id="receipt-list"></div>
     </section>
@@ -501,6 +568,12 @@
 
   </main>
 </div>
+
+<button class="cart-fab" id="cart-fab" onclick="openCartModal()" style="display:none;">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+  <span id="cart-fab-label">Cart</span>
+  <span class="cart-badge" id="cart-fab-badge">0</span>
+</button>
 </div>
 
 <!-- Product Modal -->
@@ -572,27 +645,71 @@
 <!-- Record Sale Modal -->
 <div class="modal-backdrop" id="sale-modal" style="display:none;">
   <div class="modal" style="max-width:420px;">
-    <h3>Record a sale</h3>
+    <h3>Add to cart</h3>
     <p class="modal-sub" id="sm-product-line">—</p>
     <div class="field-row">
-      <div class="field"><label>Quantity sold</label><input id="sm-qty" type="number" min="1" step="1" value="1" oninput="updateSaleTotalPreview()"></div>
+      <div class="field"><label>Quantity</label><input id="sm-qty" type="number" min="1" step="1" value="1" oninput="updateSaleTotalPreview()"></div>
       <div class="field"><label>Price / unit (₱)</label><input id="sm-price" type="number" min="0" step="0.01" oninput="updateSaleTotalPreview()"></div>
     </div>
-    <div class="field"><label>Sold to (buyer name)</label><input id="sm-buyer" placeholder="e.g. Maria Santos"></div>
-    <div class="field"><label>Date sold</label><input id="sm-date" type="date"></div>
-
-    <div class="field bacwater-field">
-      <label class="checkbox-label"><input type="checkbox" id="sm-fee-subq" onchange="updateSaleTotalPreview()"> Add Everyday Subq fee (+₱150)</label>
-    </div>
-    <div class="field bacwater-field">
-      <label class="checkbox-label"><input type="checkbox" id="sm-fee-set" onchange="updateSaleTotalPreview()"> Add Tirzepatide Set fee (+₱100)</label>
-    </div>
-
     <div class="field-note" id="sm-available-note" style="margin-bottom:6px;"></div>
     <div class="field-note" id="sm-total-preview" style="font-weight:700;color:var(--purple-ink);margin-bottom:6px;"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeSaleModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveSale()">Record sale</button>
+      <button class="btn btn-primary" onclick="addToCart()">Add to cart</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cart / Checkout Modal -->
+<div class="modal-backdrop" id="cart-modal" style="display:none;">
+  <div class="modal" style="max-width:480px;">
+    <h3>Cart</h3>
+    <p class="modal-sub">Add items from Inventory, then check out to one buyer.</p>
+    <div id="cart-items-list" style="margin-bottom:14px;"></div>
+    <div class="field"><label>Sold to (buyer name)</label><input id="cart-buyer" placeholder="e.g. Maria Santos"></div>
+    <div class="field"><label>Date sold</label><input id="cart-date" type="date"></div>
+    <div class="field bacwater-field">
+      <label class="checkbox-label"><input type="checkbox" id="cart-fee-subq" onchange="updateCartTotal()"> Add Everyday Subq fee (+₱150)</label>
+    </div>
+    <div class="field bacwater-field">
+      <label class="checkbox-label"><input type="checkbox" id="cart-fee-set" onchange="updateCartTotal()"> Add Tirzepatide Set fee (+₱100)</label>
+    </div>
+    <div class="field-note" id="cart-total-preview" style="font-weight:700;color:var(--purple-ink);font-size:15px;margin-bottom:6px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="clearCart()">Clear cart</button>
+      <button class="btn btn-primary" onclick="completeCartSale()">Complete sale</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invoice View / Print Modal -->
+<div class="modal-backdrop" id="invoice-modal" style="display:none;">
+  <div class="modal" style="max-width:420px;">
+    <div id="invoice-print-area">
+      <div class="invoice-brand">
+        <svg viewBox="0 0 40 40" fill="none" width="34" height="34">
+          <defs><linearGradient id="invBrandGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#FF9FC7"/><stop offset="1" stop-color="#9B6DD6"/>
+          </linearGradient></defs>
+          <path d="M15 3H25V10L30 17V34C30 36.2 28.2 38 26 38H14C11.8 38 10 36.2 10 34V17L15 10V3Z" fill="url(#invBrandGrad)"/>
+        </svg>
+        <div class="invoice-brand-text">Glow Peptide<span>Inventory &amp; Costing</span></div>
+      </div>
+      <div class="invoice-meta">
+        <div><span>Invoice to</span><b id="iv-buyer">—</b></div>
+        <div><span>Date</span><b id="iv-date">—</b></div>
+      </div>
+      <table class="invoice-table">
+        <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+        <tbody id="iv-items"></tbody>
+      </table>
+      <div class="invoice-totals" id="iv-totals"></div>
+      <div class="invoice-footer">Thank you for your purchase! ✨</div>
+    </div>
+    <div class="modal-actions" style="margin-top:18px;">
+      <button class="btn btn-ghost" onclick="closeInvoiceModal()">Close</button>
+      <button class="btn btn-ghost" onclick="printInvoiceBluetooth()">Print via Bluetooth</button>
+      <button class="btn btn-primary" onclick="printInvoice()">Print</button>
     </div>
   </div>
 </div>
@@ -673,15 +790,20 @@ if(firebaseConfigured){
 let products = [];
 let receipts = [];
 let sales = [];
+let invoices = [];
+let cart = [];
 let categories = [];
 let vialProducts = [];
 let editingId = null;
 let saleTargetProductId = null;
-let deleteTarget = null; // {type:'product'|'receipt'|'sale'|'category'|'vial', id}
+let deleteTarget = null; // {type:'product'|'receipt'|'sale'|'category'|'vial'|'invoice', id}
 let renameTarget = null; // {type:'category'|'vial', oldValue}
 let invFilter = 'All';
 let catFilter = 'All';
 let summaryView = 'daily';
+let salesHistoryFilterMode = 'all'; // 'all' | 'day' | 'month'
+let currentInvoiceId = null;
+let btCharacteristic = null;
 const LOW_STOCK_THRESHOLD = 2;
 const DEFAULT_CATEGORIES = ['Slimming','Skin and Repair','Fat Burner','Glutathione','Syringes','Alcohol Supplies'];
 const SUPPLY_CATEGORIES = ['Syringes','Alcohol Supplies'];
@@ -778,6 +900,7 @@ function startFirestoreSync(){
     try{ if(data.gp_products) products = JSON.parse(data.gp_products); }catch(e){}
     try{ if(data.gp_receipts) receipts = JSON.parse(data.gp_receipts); }catch(e){}
     try{ if(data.gp_sales) sales = JSON.parse(data.gp_sales); }catch(e){}
+    try{ if(data.gp_invoices) invoices = JSON.parse(data.gp_invoices); }catch(e){}
     try{ if(data.gp_categories) categories = JSON.parse(data.gp_categories); }catch(e){}
     try{ if(data.gp_vial_products) vialProducts = JSON.parse(data.gp_vial_products); }catch(e){}
     refreshVialDatalist();
@@ -822,6 +945,10 @@ async function loadData(){
     sales = s ? JSON.parse(s) : [];
   }catch(e){ sales = []; }
   try{
+    const inv = await storageGetRaw('gp_invoices');
+    invoices = inv ? JSON.parse(inv) : [];
+  }catch(e){ invoices = []; }
+  try{
     const c = await storageGetRaw('gp_categories');
     categories = c ? JSON.parse(c) : null;
   }catch(e){ categories = null; }
@@ -847,10 +974,22 @@ async function saveSales(){
   const ok = await storageSetRaw('gp_sales', JSON.stringify(sales));
   if(!ok) showToast('Could not save — please try again');
 }
+async function saveInvoices(){
+  const ok = await storageSetRaw('gp_invoices', JSON.stringify(invoices));
+  if(!ok) showToast('Could not save — please try again');
+}
 async function saveProductsAndSales(){
   const ok = await storageSetMultiRaw({
     gp_products: JSON.stringify(products),
     gp_sales: JSON.stringify(sales)
+  });
+  if(!ok) showToast('Could not save — please try again');
+}
+async function saveCheckout(){
+  const ok = await storageSetMultiRaw({
+    gp_products: JSON.stringify(products),
+    gp_sales: JSON.stringify(sales),
+    gp_invoices: JSON.stringify(invoices)
   });
   if(!ok) showToast('Could not save — please try again');
 }
@@ -1047,9 +1186,8 @@ async function saveProduct(){
 function updateSaleTotalPreview(){
   const qty = parseFloat(document.getElementById('sm-qty').value) || 0;
   const price = parseFloat(document.getElementById('sm-price').value) || 0;
-  const fee = (document.getElementById('sm-fee-subq').checked?150:0) + (document.getElementById('sm-fee-set').checked?100:0);
-  const total = qty*price + fee;
-  document.getElementById('sm-total-preview').textContent = `Total for this sale: ${peso(total)}`;
+  const total = qty*price;
+  document.getElementById('sm-total-preview').textContent = `Line total: ${peso(total)}`;
 }
 
 function openSaleModal(productId){
@@ -1060,51 +1198,147 @@ function openSaleModal(productId){
   document.getElementById('sm-qty').max = p.qty;
   document.getElementById('sm-qty').value = 1;
   document.getElementById('sm-price').value = p.price;
-  document.getElementById('sm-buyer').value = '';
-  document.getElementById('sm-date').value = todayISO();
-  document.getElementById('sm-fee-subq').checked = false;
-  document.getElementById('sm-fee-set').checked = false;
   document.getElementById('sm-available-note').textContent = `Max available: ${p.qty} unit${p.qty===1?'':'s'}`;
   updateSaleTotalPreview();
   document.getElementById('sale-modal').style.display = 'flex';
 }
 function closeSaleModal(){ document.getElementById('sale-modal').style.display='none'; saleTargetProductId=null; }
 
-async function saveSale(){
+/* ================= CART & CHECKOUT ================= */
+function addToCart(){
   const p = products.find(x=>x.id===saleTargetProductId);
   if(!p){ closeSaleModal(); return; }
   const qty = parseFloat(document.getElementById('sm-qty').value) || 0;
   const price = parseFloat(document.getElementById('sm-price').value) || 0;
-  const buyer = document.getElementById('sm-buyer').value.trim() || 'Not specified';
-  const date = document.getElementById('sm-date').value || todayISO();
-  const addSubq = document.getElementById('sm-fee-subq').checked;
-  const addSet = document.getElementById('sm-fee-set').checked;
+  if(qty<=0){ showToast('Enter a quantity'); return; }
+
+  const alreadyInCart = cart.filter(c=>c.productId===p.id).reduce((s,c)=>s+c.qty,0);
+  if(qty + alreadyInCart > p.qty){ showToast(`Only ${p.qty} unit(s) available (${alreadyInCart} already in cart)`); return; }
+
+  cart.push({
+    productId: p.id,
+    name: p.name,
+    batch: p.batch,
+    qty, price,
+    cost: costPerUnitEffective(p)
+  });
+  updateCartFab();
+  closeSaleModal();
+  showToast(`Added ${qty} × ${p.name} to cart`);
+}
+
+function updateCartFab(){
+  const fab = document.getElementById('cart-fab');
+  const count = cart.reduce((s,c)=>s+c.qty,0);
+  document.getElementById('cart-fab-badge').textContent = count;
+  fab.style.display = count>0 ? 'flex' : 'none';
+}
+
+function openCartModal(){
+  if(cart.length===0){ showToast('Your cart is empty — add items from Inventory first'); return; }
+  document.getElementById('cart-buyer').value = '';
+  document.getElementById('cart-date').value = todayISO();
+  document.getElementById('cart-fee-subq').checked = false;
+  document.getElementById('cart-fee-set').checked = false;
+  renderCartItems();
+  updateCartTotal();
+  document.getElementById('cart-modal').style.display = 'flex';
+}
+function closeCartModal(){ document.getElementById('cart-modal').style.display = 'none'; }
+
+function renderCartItems(){
+  const wrap = document.getElementById('cart-items-list');
+  if(cart.length===0){
+    wrap.innerHTML = `<div class="empty-note">Your cart is empty.</div>`;
+    return;
+  }
+  wrap.innerHTML = cart.map((c,i)=>`
+    <div class="cart-item-row">
+      <div><div class="ci-name">${escapeHtml(c.name)}</div><div class="ci-sub">${escapeHtml(c.batch)} · ${c.qty} × ${peso(c.price)}</div></div>
+      <div class="ci-right">
+        <b>${peso(c.qty*c.price)}</b>
+        <button class="icon-btn del" title="Remove" onclick="removeCartItem(${i})">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+        </button>
+      </div>
+    </div>`).join('');
+}
+function removeCartItem(index){
+  cart.splice(index,1);
+  renderCartItems();
+  updateCartTotal();
+  updateCartFab();
+  if(cart.length===0) closeCartModal();
+}
+function clearCart(){
+  cart = [];
+  updateCartFab();
+  closeCartModal();
+  showToast('Cart cleared');
+}
+
+function updateCartTotal(){
+  const subtotal = cart.reduce((s,c)=>s+c.qty*c.price,0);
+  const fee = (document.getElementById('cart-fee-subq').checked?150:0) + (document.getElementById('cart-fee-set').checked?100:0);
+  document.getElementById('cart-total-preview').textContent = `Total: ${peso(subtotal+fee)}`;
+}
+
+async function completeCartSale(){
+  if(cart.length===0){ closeCartModal(); return; }
+  const buyer = document.getElementById('cart-buyer').value.trim() || 'Not specified';
+  const date = document.getElementById('cart-date').value || todayISO();
+  const addSubq = document.getElementById('cart-fee-subq').checked;
+  const addSet = document.getElementById('cart-fee-set').checked;
   const fee = (addSubq?150:0) + (addSet?100:0);
   const feeLabels = [];
   if(addSubq) feeLabels.push('Everyday Subq +₱150');
   if(addSet) feeLabels.push('Tirzepatide Set +₱100');
   const feeLabel = feeLabels.join(' · ');
 
-  if(qty<=0){ showToast('Enter a quantity to sell'); return; }
-  if(qty>p.qty){ showToast(`Only ${p.qty} unit(s) available`); return; }
+  // Validate stock is still available for every line before committing anything
+  for(const c of cart){
+    const p = products.find(x=>x.id===c.productId);
+    if(!p || c.qty>p.qty){ showToast(`Not enough stock left for ${c.name} — please review your cart`); return; }
+  }
 
-  const unitCost = costPerUnitEffective(p);
-  sales.push({
-    id: uid(),
-    productId: p.id,
-    name: p.name,
-    batch: p.batch,
-    qty, price, cost: unitCost,
-    fee, feeLabel,
-    buyer, date
+  const orderId = uid();
+  const invoiceItems = [];
+  cart.forEach((c,i)=>{
+    const p = products.find(x=>x.id===c.productId);
+    sales.push({
+      id: uid(),
+      orderId,
+      productId: c.productId,
+      name: c.name,
+      batch: c.batch,
+      qty: c.qty, price: c.price, cost: c.cost,
+      fee: i===0 ? fee : 0,
+      feeLabel: i===0 ? feeLabel : '',
+      buyer, date
+    });
+    if(p) p.qty -= c.qty;
+    invoiceItems.push({name:c.name, batch:c.batch, qty:c.qty, price:c.price, lineTotal:c.qty*c.price});
   });
 
-  p.qty -= qty;
+  const subtotal = cart.reduce((s,c)=>s+c.qty*c.price,0);
+  const cost = cart.reduce((s,c)=>s+c.qty*c.cost,0);
+  const total = subtotal + fee;
+  const profit = (subtotal - cost) + fee;
 
-  await saveProductsAndSales();
-  closeSaleModal();
+  invoices.push({
+    id: orderId,
+    buyer, date,
+    items: invoiceItems,
+    fee, feeLabel,
+    subtotal, total, cost, profit
+  });
+
+  cart = [];
+  updateCartFab();
+  await saveCheckout();
+  closeCartModal();
   renderAll();
-  showToast(`Sale recorded — ${qty} unit(s) to ${buyer}`);
+  showToast(`Sale completed — invoice created for ${buyer}`);
 }
 
 /* ================= DELETE ================= */
@@ -1113,6 +1347,7 @@ function askDelete(type, id){
   const subEl = document.getElementById('delete-modal-sub');
   if(type==='category') subEl.textContent = `Any products using "${id}" will be moved to Uncategorized. This can't be undone.`;
   else if(type==='vial') subEl.textContent = `This removes "${id}" from your name suggestions. Existing products keep their current name.`;
+  else if(type==='invoice') subEl.textContent = `This deletes the invoice record. The sales that made it up will stay in Sales History. This can't be undone.`;
   else subEl.textContent = `This can't be undone — the entry will be removed from your records for good.`;
   document.getElementById('delete-modal').style.display = 'flex';
 }
@@ -1134,6 +1369,9 @@ async function confirmDelete(){
     vialProducts = vialProducts.filter(v=>v!==deleteTarget.id);
     await saveVialProducts();
     refreshVialDatalist();
+  } else if(deleteTarget.type==='invoice'){
+    invoices = invoices.filter(i=>i.id!==deleteTarget.id);
+    await saveInvoices();
   } else {
     receipts = receipts.filter(r=>r.id!==deleteTarget.id);
     await saveReceipts();
@@ -1287,6 +1525,23 @@ document.querySelectorAll('#tab-receipts .toggle-group')[0].addEventListener('cl
   b.classList.add('active');
   summaryView = b.dataset.view;
   renderReceiptSummary();
+});
+
+document.getElementById('sh-filter-mode').addEventListener('click', e=>{
+  const b = e.target.closest('.toggle-btn');
+  if(!b) return;
+  document.querySelectorAll('#sh-filter-mode .toggle-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  salesHistoryFilterMode = b.dataset.mode;
+  document.getElementById('sh-filter-day-wrap').style.display = salesHistoryFilterMode==='day' ? '' : 'none';
+  document.getElementById('sh-filter-month-wrap').style.display = salesHistoryFilterMode==='month' ? '' : 'none';
+  if(salesHistoryFilterMode==='day' && !document.getElementById('sh-filter-day').value){
+    document.getElementById('sh-filter-day').value = todayISO();
+  }
+  if(salesHistoryFilterMode==='month' && !document.getElementById('sh-filter-month').value){
+    document.getElementById('sh-filter-month').value = todayISO().slice(0,7);
+  }
+  renderSalesHistory();
 });
 
 /* ================= RENDER: DASHBOARD ================= */
@@ -1446,7 +1701,7 @@ function renderInventory(){
       <td>
         <div class="row-actions">
           ${(p.status==='Available Stock' && p.qty>0) ? `
-          <button class="icon-btn" title="Record a sale" onclick="openSaleModal('${p.id}')" style="color:var(--good);border-color:#CFEBDB;">
+          <button class="icon-btn" title="Add to cart" onclick="openSaleModal('${p.id}')" style="color:var(--good);border-color:#CFEBDB;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
           </button>` : ''}
           <button class="icon-btn" title="Edit" onclick="openProductModal('${p.id}')">
@@ -1471,17 +1726,26 @@ function renderInventory(){
 
 /* ================= RENDER: SALES HISTORY ================= */
 function renderSalesHistory(){
-  const totalUnits = sales.reduce((s,x)=>s+x.qty,0);
-  const totalCost = sales.reduce((s,x)=>s+x.qty*x.cost,0);
-  const totalValue = sales.reduce((s,x)=>s+x.qty*x.price+(x.fee||0),0);
-  const totalProfit = sales.reduce((s,x)=>s+x.qty*(x.price-x.cost)+(x.fee||0),0);
+  let filtered = sales;
+  if(salesHistoryFilterMode==='day'){
+    const day = document.getElementById('sh-filter-day').value;
+    if(day) filtered = sales.filter(x=>x.date===day);
+  } else if(salesHistoryFilterMode==='month'){
+    const month = document.getElementById('sh-filter-month').value;
+    if(month) filtered = sales.filter(x=>(x.date||'').slice(0,7)===month);
+  }
+
+  const totalUnits = filtered.reduce((s,x)=>s+x.qty,0);
+  const totalCost = filtered.reduce((s,x)=>s+x.qty*x.cost,0);
+  const totalValue = filtered.reduce((s,x)=>s+x.qty*x.price+(x.fee||0),0);
+  const totalProfit = filtered.reduce((s,x)=>s+x.qty*(x.price-x.cost)+(x.fee||0),0);
   document.getElementById('sales-units').textContent = totalUnits;
   document.getElementById('sales-cost').textContent = peso(totalCost);
   document.getElementById('sales-value').textContent = peso(totalValue);
   document.getElementById('sales-profit').textContent = peso(totalProfit);
 
   const wrap = document.getElementById('sales-table-wrap');
-  const list = [...sales].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const list = [...filtered].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(list.length===0){
     wrap.innerHTML = `<div class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="#D9C4F5" stroke-width="2" style="margin:0 auto;"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
@@ -1568,7 +1832,132 @@ function renderReceiptList(){
     </div>`).join('');
 }
 
-/* ================= RENDER: PERSONAL USE ================= */
+/* ================= RENDER: INVOICES ================= */
+function renderInvoices(){
+  const wrap = document.getElementById('invoice-list');
+  const sorted = [...invoices].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(sorted.length===0){
+    wrap.innerHTML = `<div class="empty-note">No invoices yet — completing a cart checkout in Inventory will create one here.</div>`;
+    return;
+  }
+  wrap.innerHTML = sorted.map(inv=>{
+    const summary = inv.items.map(it=>`${escapeHtml(it.name)} ×${it.qty}`).join(', ');
+    return `<div class="invoice-card">
+      <div class="inv-top">
+        <div><div class="inv-buyer">${escapeHtml(inv.buyer)}</div><div class="inv-date">${formatDate(inv.date)}</div></div>
+        <div class="inv-total">${peso(inv.total)}</div>
+      </div>
+      <div class="inv-items-summary">${summary}${inv.feeLabel?' · '+escapeHtml(inv.feeLabel):''}</div>
+      <div class="inv-actions">
+        <button class="btn btn-ghost btn-sm" onclick="viewInvoice('${inv.id}')">View / Print</button>
+        <button class="icon-btn del" title="Delete permanently" onclick="askDelete('invoice','${inv.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function viewInvoice(id){
+  const inv = invoices.find(i=>i.id===id);
+  if(!inv) return;
+  currentInvoiceId = id;
+  document.getElementById('iv-buyer').textContent = inv.buyer;
+  document.getElementById('iv-date').textContent = formatDate(inv.date);
+  document.getElementById('iv-items').innerHTML = inv.items.map(it=>`
+    <tr>
+      <td>${escapeHtml(it.name)}<br><span style="color:var(--ink-soft);font-size:11px;">${escapeHtml(it.batch)}</span></td>
+      <td>${it.qty}</td>
+      <td>${peso(it.price)}</td>
+      <td>${peso(it.lineTotal)}</td>
+    </tr>`).join('');
+  let totalsHtml = `<div class="it-row"><span>Subtotal</span><span>${peso(inv.subtotal)}</span></div>`;
+  if(inv.fee>0) totalsHtml += `<div class="it-row"><span>${escapeHtml(inv.feeLabel)}</span><span>${peso(inv.fee)}</span></div>`;
+  totalsHtml += `<div class="it-row it-grand"><span>Total</span><span>${peso(inv.total)}</span></div>`;
+  document.getElementById('iv-totals').innerHTML = totalsHtml;
+  document.getElementById('invoice-modal').style.display = 'flex';
+}
+function closeInvoiceModal(){ document.getElementById('invoice-modal').style.display = 'none'; currentInvoiceId = null; }
+
+function printInvoice(){
+  window.print();
+}
+
+/* ================= BLUETOOTH PRINTING (experimental) =================
+   Support varies a lot between thermal printer brands. This tries a couple of
+   the most common BLE printer service/characteristic combinations; if your
+   printer isn't recognized, use the regular "Print" button instead — that works
+   with any printer already set up on your phone or laptop, Bluetooth or not. */
+const BT_PRINTER_PROFILES = [
+  {service:'000018f0-0000-1000-8000-00805f9b34fb', char:'00002af1-0000-1000-8000-00805f9b34fb'},
+  {service:'e7810a71-73ae-499d-8c15-faa9aef0c3f2', char:'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'}
+];
+
+async function connectBluetoothPrinter(){
+  if(!navigator.bluetooth){
+    showToast("This browser doesn't support Bluetooth printing (try Chrome on Android)");
+    return false;
+  }
+  try{
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: BT_PRINTER_PROFILES.map(p=>p.service)
+    });
+    const server = await device.gatt.connect();
+    for(const profile of BT_PRINTER_PROFILES){
+      try{
+        const service = await server.getPrimaryService(profile.service);
+        const char = await service.getCharacteristic(profile.char);
+        btCharacteristic = char;
+        return true;
+      }catch(e){ /* try next known profile */ }
+    }
+    showToast("Connected, but couldn't find a printable service on this device.");
+    return false;
+  }catch(e){
+    showToast('Could not connect to a Bluetooth printer.');
+    return false;
+  }
+}
+
+function buildInvoiceReceiptText(inv){
+  const line = '--------------------------------\n';
+  let t = 'GLOW PEPTIDE\n' + line;
+  t += `To: ${inv.buyer}\nDate: ${formatDate(inv.date)}\n` + line;
+  inv.items.forEach(it=>{
+    t += `${it.name} (${it.batch})\n  x${it.qty} @ ${peso(it.price)} = ${peso(it.lineTotal)}\n`;
+  });
+  t += line;
+  t += `Subtotal: ${peso(inv.subtotal)}\n`;
+  if(inv.fee>0) t += `${inv.feeLabel}: ${peso(inv.fee)}\n`;
+  t += `TOTAL: ${peso(inv.total)}\n` + line;
+  t += 'Thank you for your purchase!\n\n\n';
+  return t;
+}
+
+async function printInvoiceBluetooth(){
+  const inv = invoices.find(i=>i.id===currentInvoiceId);
+  if(!inv) return;
+  if(!btCharacteristic){
+    const ok = await connectBluetoothPrinter();
+    if(!ok) return;
+  }
+  try{
+    const text = buildInvoiceReceiptText(inv);
+    const encoder = new TextEncoder();
+    const initCmd = new Uint8Array([0x1B,0x40]); // ESC @ (initialize printer)
+    const bytes = new Uint8Array([...initCmd, ...encoder.encode(text)]);
+    const chunkSize = 180; // many BLE printers cap writes around this size
+    for(let i=0;i<bytes.length;i+=chunkSize){
+      await btCharacteristic.writeValue(bytes.slice(i,i+chunkSize));
+    }
+    showToast('Sent to Bluetooth printer');
+  }catch(e){
+    showToast("Print failed — this printer may not support this format. Try the regular Print button instead.");
+  }
+}
+
+
 function renderPersonal(){
   const personal = products.filter(p=>p.status==='Personal Use / Free');
   const total = personal.reduce((s,p)=>s+costTotal(p),0);
@@ -1647,9 +2036,11 @@ function renderAll(){
   renderSalesHistory();
   renderReceiptSummary();
   renderReceiptList();
+  renderInvoices();
   renderPersonal();
   renderCategorySettings();
   renderVialSettings();
+  updateCartFab();
 }
 
 initAuthFlow();
