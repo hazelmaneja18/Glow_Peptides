@@ -157,6 +157,11 @@
     font-family:'Inter';font-size:14px;color:var(--ink);background:#FFFCFE;
   }
   .field input:focus, .field select:focus{outline:none;border-color:var(--purple);}
+  .field-note{font-size:11.5px;color:var(--ink-soft);margin-top:6px;}
+  .checkbox-label{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--purple-ink);cursor:pointer;}
+  .checkbox-label input[type="checkbox"]{width:16px;height:16px;accent-color:var(--purple-deep);cursor:pointer;}
+  .bacwater-field{margin-bottom:10px;}
+  .bac-tag{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;color:var(--purple-deep);background:var(--purple-soft);padding:2px 7px;border-radius:8px;}
   .field-row{display:flex;gap:12px;}
   .field-row .field{flex:1;}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
@@ -419,6 +424,14 @@
       <div class="field"><label>Cost price / unit (₱)</label><input id="pm-cost" type="number" min="0" step="0.01" placeholder="0.00"></div>
       <div class="field"><label>Selling price / unit (₱)</label><input id="pm-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
     </div>
+    <div class="field bacwater-field">
+      <label class="checkbox-label"><input type="checkbox" id="pm-bac-include" onchange="toggleBacWaterField()"> Includes BAC Water</label>
+    </div>
+    <div class="field" id="pm-bac-amount-wrap" style="display:none;">
+      <label>BAC Water cost for this batch (₱)</label>
+      <input id="pm-bac-amount" type="number" min="0" step="0.01" placeholder="0.00">
+      <div class="field-note">Added on top as a flat cost for this batch — not multiplied by quantity.</div>
+    </div>
     <div class="field-row">
       <div class="field">
         <label>Status</label>
@@ -510,6 +523,17 @@ const peso = n => '₱' + (Number(n)||0).toLocaleString('en-PH',{minimumFraction
 const todayISO = () => new Date().toISOString().slice(0,10);
 function uid(){ return 'id_'+Date.now()+'_'+Math.floor(Math.random()*10000); }
 
+/* Total cost for a product line = base cost (qty x cost/unit) plus a flat BAC Water addition, if included */
+function costTotal(p){
+  const base = p.qty*p.cost;
+  const bac = (p.bacWater && p.bacWater.included) ? (p.bacWater.amount||0) : 0;
+  return base + bac;
+}
+/* Effective cost per unit, for display, once BAC Water is folded in */
+function costPerUnitEffective(p){
+  return p.qty>0 ? costTotal(p)/p.qty : p.cost;
+}
+
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -538,6 +562,11 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
 });
 
 /* ================= PRODUCT MODAL ================= */
+function toggleBacWaterField(){
+  const on = document.getElementById('pm-bac-include').checked;
+  document.getElementById('pm-bac-amount-wrap').style.display = on ? '' : 'none';
+}
+
 function openProductModal(id){
   editingId = id || null;
   document.getElementById('pm-title').textContent = id ? 'Edit product' : 'Add a product';
@@ -551,11 +580,17 @@ function openProductModal(id){
     document.getElementById('pm-status').value = p.status;
     document.getElementById('pm-date').value = p.date;
     document.getElementById('pm-tier').value = p.tier || '';
+    const hasBac = !!(p.bacWater && p.bacWater.included);
+    document.getElementById('pm-bac-include').checked = hasBac;
+    document.getElementById('pm-bac-amount').value = hasBac ? p.bacWater.amount : '';
+    document.getElementById('pm-bac-amount-wrap').style.display = hasBac ? '' : 'none';
   } else {
-    ['pm-name','pm-batch','pm-cost','pm-price','pm-tier'].forEach(id=>document.getElementById(id).value='');
+    ['pm-name','pm-batch','pm-cost','pm-price','pm-tier','pm-bac-amount'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('pm-qty').value = 1;
     document.getElementById('pm-status').value = 'Available Stock';
     document.getElementById('pm-date').value = todayISO();
+    document.getElementById('pm-bac-include').checked = false;
+    document.getElementById('pm-bac-amount-wrap').style.display = 'none';
   }
   document.getElementById('product-modal').style.display = 'flex';
 }
@@ -570,14 +605,17 @@ async function saveProduct(){
   const status = document.getElementById('pm-status').value;
   const date = document.getElementById('pm-date').value || todayISO();
   const tier = document.getElementById('pm-tier').value.trim();
+  const bacIncluded = document.getElementById('pm-bac-include').checked;
+  const bacAmount = bacIncluded ? (parseFloat(document.getElementById('pm-bac-amount').value) || 0) : 0;
+  const bacWater = {included: bacIncluded, amount: bacAmount};
 
   if(!name || qty<=0){ showToast('Please add a product name and quantity'); return; }
 
   if(editingId){
     const p = products.find(x=>x.id===editingId);
-    Object.assign(p, {name,batch,qty,cost,price,status,date,tier});
+    Object.assign(p, {name,batch,qty,cost,price,status,date,tier,bacWater});
   } else {
-    products.push({id:uid(), name, batch, qty, cost, price, status, date, tier});
+    products.push({id:uid(), name, batch, qty, cost, price, status, date, tier, bacWater});
   }
   await saveProducts();
   closeProductModal();
@@ -657,11 +695,11 @@ function renderDashboard(){
   const personal = products.filter(p=>p.status==='Personal Use / Free');
 
   const revenue = sold.reduce((s,p)=>s+p.qty*p.price,0);
-  const soldCost = sold.reduce((s,p)=>s+p.qty*p.cost,0);
+  const soldCost = sold.reduce((s,p)=>s+costTotal(p),0);
   const profit = revenue - soldCost;
   const stockQty = stockItems.reduce((s,p)=>s+p.qty,0);
   const soldQty = sold.reduce((s,p)=>s+p.qty,0);
-  const personalCost = personal.reduce((s,p)=>s+p.qty*p.cost,0);
+  const personalCost = personal.reduce((s,p)=>s+costTotal(p),0);
 
   document.getElementById('stat-profit').textContent = peso(profit);
   document.getElementById('stat-profit-sub').textContent = `revenue ${peso(revenue)} minus cost ${peso(soldCost)}`;
@@ -725,14 +763,15 @@ function renderInventory(){
   }
 
   const rows = list.map(p=>{
-    const totalCost = p.qty*p.cost;
+    const totalCost = costTotal(p);
     const totalSales = p.status==='Sold' ? p.qty*p.price : 0;
     const profit = p.status==='Personal Use / Free' ? -totalCost : (totalSales-totalCost);
     const badgeClass = p.status==='Sold' ? 'sold' : (p.status==='Available Stock' ? 'stock' : 'free');
+    const hasBac = p.bacWater && p.bacWater.included;
     return `<tr>
-      <td><div class="vial-cell">${vialIcon(p.name)}<div><div class="vial-name">${escapeHtml(p.name)}</div><div class="vial-batch">${escapeHtml(p.batch)}${p.tier?' · '+escapeHtml(p.tier):''}</div></div></div></td>
+      <td><div class="vial-cell">${vialIcon(p.name)}<div><div class="vial-name">${escapeHtml(p.name)}</div><div class="vial-batch">${escapeHtml(p.batch)}${p.tier?' · '+escapeHtml(p.tier):''}${hasBac?' <span class="bac-tag">+BAC Water '+peso(p.bacWater.amount)+'</span>':''}</div></div></div></td>
       <td>${p.qty}</td>
-      <td>${peso(p.cost)}</td>
+      <td>${peso(p.cost)}${hasBac?' <span style="color:var(--ink-soft);font-size:11px;">('+peso(costPerUnitEffective(p))+' w/ BAC)</span>':''}</td>
       <td>${p.status==='Personal Use / Free' ? '—' : peso(p.price)}</td>
       <td>${peso(totalCost)}</td>
       <td>${peso(totalSales)}</td>
@@ -812,7 +851,7 @@ function renderReceiptList(){
 /* ================= RENDER: PERSONAL USE ================= */
 function renderPersonal(){
   const personal = products.filter(p=>p.status==='Personal Use / Free');
-  const total = personal.reduce((s,p)=>s+p.qty*p.cost,0);
+  const total = personal.reduce((s,p)=>s+costTotal(p),0);
   document.getElementById('pu-total').textContent = peso(total);
 
   const grid = document.getElementById('pu-grid');
@@ -820,13 +859,16 @@ function renderPersonal(){
     grid.innerHTML = `<div class="empty-note" style="grid-column:1/-1;">No personal-use items logged.</div>`;
     return;
   }
-  grid.innerHTML = personal.map(p=>`
+  grid.innerHTML = personal.map(p=>{
+    const hasBac = p.bacWater && p.bacWater.included;
+    return `
     <div class="pu-card">
-      <div class="pu-name">${escapeHtml(p.name)}</div>
+      <div class="pu-name">${escapeHtml(p.name)}${hasBac?' <span class="bac-tag">+BAC Water</span>':''}</div>
       <div class="pu-batch">${escapeHtml(p.batch)}</div>
-      <div class="pu-cost">${peso(p.qty*p.cost)}</div>
-      <div class="pu-qty">${p.qty} unit${p.qty===1?'':'s'} · ${peso(p.cost)} each</div>
-    </div>`).join('');
+      <div class="pu-cost">${peso(costTotal(p))}</div>
+      <div class="pu-qty">${p.qty} unit${p.qty===1?'':'s'} · ${peso(p.cost)} each${hasBac?' + '+peso(p.bacWater.amount)+' BAC Water':''}</div>
+    </div>`;
+  }).join('');
 }
 
 /* ================= UTIL ================= */
