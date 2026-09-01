@@ -6,6 +6,10 @@
 <title>Glow Peptide — Inventory</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Firebase (only used once you fill in your config further down in the script) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --pink-wash:#FFF1F7;
@@ -186,6 +190,7 @@
   .manage-list{display:flex;flex-direction:column;gap:8px;}
   .manage-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:12px;font-size:13.5px;}
   .manage-row .manage-row-label{font-weight:600;color:var(--purple-ink);}
+  #auth-gate{display:none;}
   .field-row{display:flex;gap:12px;}
   .field-row .field{flex:1;}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
@@ -258,6 +263,10 @@
 </style>
 </head>
 <body>
+
+<div id="auth-gate" style="display:none;"></div>
+
+<div id="app-root" style="display:none;">
 <div class="app">
 
   <!-- Sidebar -->
@@ -299,7 +308,7 @@
       Settings
     </button>
 
-    <div class="sidebar-footer">Prices are logged locally to your account and stay saved after refresh.</div>
+    <div class="sidebar-footer" id="storage-mode-note">Checking storage…</div>
   </aside>
 
   <!-- Main -->
@@ -488,6 +497,7 @@
 
   </main>
 </div>
+</div>
 
 <!-- Product Modal -->
 <div class="modal-backdrop" id="product-modal" style="display:none;">
@@ -501,7 +511,7 @@
     </div>
     <div class="field">
       <label>Category</label>
-      <select id="pm-category">
+      <select id="pm-category" onchange="handleCategoryChange()">
         <option value="" disabled>Choose a category</option>
       </select>
     </div>
@@ -514,16 +524,18 @@
       <div class="field"><label>Selling price / unit (₱)</label><input id="pm-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
     </div>
 
-    <div class="field bacwater-field">
-      <label class="checkbox-label"><input type="checkbox" id="pm-box-include" onchange="toggleBoxCalc()"> Bought by the box (syringes, alcohol pads, etc.)</label>
-    </div>
-    <div class="box-calc" id="pm-box-calc-wrap" style="display:none;">
-      <div class="field-row">
-        <div class="field"><label>Number of boxes</label><input id="pm-box-count" type="number" min="1" value="1" oninput="recalcFromBox()"></div>
-        <div class="field"><label>Pieces per box</label><input id="pm-box-pieces" type="number" min="1" value="100" oninput="recalcFromBox()"></div>
+    <div id="pm-box-section" style="display:none;">
+      <div class="field bacwater-field">
+        <label class="checkbox-label"><input type="checkbox" id="pm-box-include" onchange="toggleBoxCalc()"> Bought by the box</label>
       </div>
-      <div class="field"><label>Cost per box (₱)</label><input id="pm-box-cost" type="number" min="0" step="0.01" placeholder="0.00" oninput="recalcFromBox()"></div>
-      <div class="field-note">This fills in Quantity and Cost price / unit above automatically — boxes × pieces per box, at cost per box ÷ pieces per box.</div>
+      <div class="box-calc" id="pm-box-calc-wrap" style="display:none;">
+        <div class="field-row">
+          <div class="field"><label>Number of boxes</label><input id="pm-box-count" type="number" min="1" value="1" oninput="recalcFromBox()"></div>
+          <div class="field"><label>Pieces per box</label><input id="pm-box-pieces" type="number" min="1" value="100" oninput="recalcFromBox()"></div>
+        </div>
+        <div class="field"><label>Cost per box (₱)</label><input id="pm-box-cost" type="number" min="0" step="0.01" placeholder="0.00" oninput="recalcFromBox()"></div>
+        <div class="field-note">This fills in Quantity and Cost price / unit above automatically — boxes × pieces per box, at cost per box ÷ pieces per box.</div>
+      </div>
     </div>
 
     <div class="field bacwater-field">
@@ -620,6 +632,30 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* ================= FIREBASE (optional, for syncing across your devices) =================
+   Fill in these six values with your own Firebase project's config to make your
+   laptop and phone share the exact same inventory. Find them at:
+   Firebase console > Project settings (gear icon) > General > "Your apps" > SDK setup.
+   Leave the placeholders as-is to keep using this app on a single device without Firebase.
+   No sign-in required — every device with this file (and this config) shares one
+   database document, so keep this file private since anyone with these values could
+   read or write your data. */
+const firebaseConfig = {
+  apiKey: "AIzaSyAJjxiXH50EFqXfg9JkhqwcqxNOr5JnP44",
+  authDomain: "glow-peptides.firebaseapp.com",
+  projectId: "glow-peptides",
+  storageBucket: "glow-peptides.firebasestorage.app",
+  messagingSenderId: "123324120219",
+  appId: "1:123324120219:web:e86350ade81ba86f845a3e"
+};
+const firebaseConfigured = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'YOUR_API_KEY';
+const FIRESTORE_DOC_PATH = ['stores', 'main']; // shared by every device using this file
+let fbDb = null, fbUnsubSync = null;
+if(firebaseConfigured){
+  firebase.initializeApp(firebaseConfig);
+  fbDb = firebase.firestore();
+}
+
 /* ================= STATE ================= */
 let products = [];
 let receipts = [];
@@ -635,58 +671,153 @@ let catFilter = 'All';
 let summaryView = 'daily';
 const LOW_STOCK_THRESHOLD = 2;
 const DEFAULT_CATEGORIES = ['Slimming','Skin and Repair','Fat Burner','Glutathione','Syringes','Alcohol Supplies'];
+const SUPPLY_CATEGORIES = ['Syringes','Alcohol Supplies'];
 const DEFAULT_VIAL_PRODUCTS = ['Tirzepatide 30mg','Tirzepatide 15mg','KPV 10mg','GHK-CU 100mg','HHB 10ml','SuperHumanBlend 10ml','Super Shredder 10ml','Pharma Bac Ampoule 10ml','BAC Water 10ml','BAC Water 5ml','BAC Water 3ml','Syringe 1cc','Syringe 3ml','Syringe IM','Alcohol Pads'];
 
 /* ================= STORAGE ================= */
-async function loadData(){
+/* If Firebase is configured, data syncs through one shared Firestore document so
+   every device opening this same file sees the same thing — no sign-in required.
+   Otherwise this prefers Claude's built-in persistent storage, falling back to this
+   browser's localStorage if that isn't available (e.g. the file was opened directly
+   outside claude.ai). */
+let storageMode = 'claude'; // 'claude' | 'local' | 'firebase'
+
+function firestoreDocRef(){
+  return fbDb.collection(FIRESTORE_DOC_PATH[0]).doc(FIRESTORE_DOC_PATH[1]);
+}
+
+async function detectStorageMode(){
+  if(firebaseConfigured){ storageMode = 'firebase'; return; }
+  const hasBridge = typeof window.storage !== 'undefined' && window.storage && typeof window.storage.set === 'function';
+  if(!hasBridge){ storageMode = 'local'; return; }
   try{
-    const p = await window.storage.get('gp_products', false);
-    products = p ? JSON.parse(p.value) : [];
+    await window.storage.set('gp_storage_check', '1', false);
+    storageMode = 'claude';
+  }catch(e){
+    storageMode = 'local';
+  }
+}
+
+async function storageGetRaw(key){
+  if(storageMode==='firebase'){
+    try{
+      const snap = await firestoreDocRef().get();
+      if(!snap.exists) return null;
+      const data = snap.data();
+      return (data && data[key]) ? data[key] : null;
+    }catch(e){ return null; }
+  }
+  if(storageMode==='claude'){
+    try{
+      const r = await window.storage.get(key, false);
+      return r ? r.value : null;
+    }catch(e){ return null; }
+  }
+  try{ return localStorage.getItem(key); }
+  catch(e){ return null; }
+}
+
+async function storageSetRaw(key, value){
+  if(storageMode==='firebase'){
+    try{ await firestoreDocRef().set({[key]: value}, {merge:true}); return true; }
+    catch(e){ return false; }
+  }
+  if(storageMode==='claude'){
+    try{ await window.storage.set(key, value, false); return true; }
+    catch(e){ return false; }
+  }
+  try{ localStorage.setItem(key, value); return true; }
+  catch(e){ return false; }
+}
+
+function startFirestoreSync(){
+  if(fbUnsubSync) fbUnsubSync();
+  fbUnsubSync = firestoreDocRef().onSnapshot(doc=>{
+    if(!doc.exists) return;
+    const data = doc.data();
+    try{ if(data.gp_products) products = JSON.parse(data.gp_products); }catch(e){}
+    try{ if(data.gp_receipts) receipts = JSON.parse(data.gp_receipts); }catch(e){}
+    try{ if(data.gp_sales) sales = JSON.parse(data.gp_sales); }catch(e){}
+    try{ if(data.gp_categories) categories = JSON.parse(data.gp_categories); }catch(e){}
+    try{ if(data.gp_vial_products) vialProducts = JSON.parse(data.gp_vial_products); }catch(e){}
+    refreshVialDatalist();
+    refreshCategorySelectOptions();
+    renderAll();
+  });
+}
+
+function updateStorageModeNote(){
+  const el = document.getElementById('storage-mode-note');
+  if(!el) return;
+  if(storageMode==='firebase'){
+    el.textContent = 'Synced live via Firebase — every device with this file sees the same inventory.';
+  } else if(storageMode==='claude'){
+    el.textContent = 'Saved to your Claude account — stays saved after refresh.';
+  } else {
+    el.textContent = "Saved to this browser — stays saved after refresh here, but won't follow you to another device or browser.";
+  }
+}
+
+
+/* ================= BOOT ================= */
+async function initAuthFlow(){
+  document.getElementById('app-root').style.display = '';
+  document.getElementById('auth-gate').style.display = 'none';
+  await loadData();
+  if(storageMode==='firebase') startFirestoreSync();
+}
+
+async function loadData(){
+  await detectStorageMode();
+  try{
+    const p = await storageGetRaw('gp_products');
+    products = p ? JSON.parse(p) : [];
   }catch(e){ products = []; }
   try{
-    const r = await window.storage.get('gp_receipts', false);
-    receipts = r ? JSON.parse(r.value) : [];
+    const r = await storageGetRaw('gp_receipts');
+    receipts = r ? JSON.parse(r) : [];
   }catch(e){ receipts = []; }
   try{
-    const s = await window.storage.get('gp_sales', false);
-    sales = s ? JSON.parse(s.value) : [];
+    const s = await storageGetRaw('gp_sales');
+    sales = s ? JSON.parse(s) : [];
   }catch(e){ sales = []; }
   try{
-    const c = await window.storage.get('gp_categories', false);
-    categories = c ? JSON.parse(c.value) : null;
+    const c = await storageGetRaw('gp_categories');
+    categories = c ? JSON.parse(c) : null;
   }catch(e){ categories = null; }
   if(!categories){ categories = [...DEFAULT_CATEGORIES]; await saveCategories(); }
   try{
-    const v = await window.storage.get('gp_vial_products', false);
-    vialProducts = v ? JSON.parse(v.value) : null;
+    const v = await storageGetRaw('gp_vial_products');
+    vialProducts = v ? JSON.parse(v) : null;
   }catch(e){ vialProducts = null; }
   if(!vialProducts){ vialProducts = [...DEFAULT_VIAL_PRODUCTS]; await saveVialProducts(); }
 
   refreshVialDatalist();
   refreshCategorySelectOptions();
+  updateStorageModeNote();
   renderAll();
   document.getElementById('dash-date-sub').textContent = new Date().toLocaleDateString('en-PH',{weekday:'long', year:'numeric', month:'long', day:'numeric'});
 }
 
 async function saveProducts(){
-  try{ await window.storage.set('gp_products', JSON.stringify(products), false); }
-  catch(e){ showToast('Could not save — please try again'); }
+  const ok = await storageSetRaw('gp_products', JSON.stringify(products));
+  if(!ok) showToast('Could not save — please try again');
 }
 async function saveSales(){
-  try{ await window.storage.set('gp_sales', JSON.stringify(sales), false); }
-  catch(e){ showToast('Could not save — please try again'); }
+  const ok = await storageSetRaw('gp_sales', JSON.stringify(sales));
+  if(!ok) showToast('Could not save — please try again');
 }
 async function saveReceipts(){
-  try{ await window.storage.set('gp_receipts', JSON.stringify(receipts), false); }
-  catch(e){ showToast('Could not save — please try again'); }
+  const ok = await storageSetRaw('gp_receipts', JSON.stringify(receipts));
+  if(!ok) showToast('Could not save — please try again');
 }
 async function saveCategories(){
-  try{ await window.storage.set('gp_categories', JSON.stringify(categories), false); }
-  catch(e){ showToast('Could not save — please try again'); }
+  const ok = await storageSetRaw('gp_categories', JSON.stringify(categories));
+  if(!ok) showToast('Could not save — please try again');
 }
 async function saveVialProducts(){
-  try{ await window.storage.set('gp_vial_products', JSON.stringify(vialProducts), false); }
-  catch(e){ showToast('Could not save — please try again'); }
+  const ok = await storageSetRaw('gp_vial_products', JSON.stringify(vialProducts));
+  if(!ok) showToast('Could not save — please try again');
 }
 
 /* ================= HELPERS ================= */
@@ -785,9 +916,21 @@ function openProductModal(id){
     document.getElementById('pm-box-pieces').value = 100;
     document.getElementById('pm-box-cost').value = '';
   }
+  handleCategoryChange();
   document.getElementById('product-modal').style.display = 'flex';
 }
 function closeProductModal(){ document.getElementById('product-modal').style.display='none'; editingId=null; }
+
+function handleCategoryChange(){
+  const cat = document.getElementById('pm-category').value;
+  const isSupply = SUPPLY_CATEGORIES.includes(cat);
+  const section = document.getElementById('pm-box-section');
+  section.style.display = isSupply ? '' : 'none';
+  if(!isSupply){
+    document.getElementById('pm-box-include').checked = false;
+    document.getElementById('pm-box-calc-wrap').style.display = 'none';
+  }
+}
 
 function toggleBoxCalc(){
   const on = document.getElementById('pm-box-include').checked;
@@ -1422,7 +1565,7 @@ function renderAll(){
   renderVialSettings();
 }
 
-loadData();
+initAuthFlow();
 </script>
 </body>
 </html>
