@@ -398,10 +398,14 @@
         </div>
       </div>
 
-      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);">
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
         <div class="card stat-card">
           <div class="stat-label">Units sold</div>
           <div class="stat-value" id="sales-units">0</div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Total cost</div>
+          <div class="stat-value neg" id="sales-cost">₱0.00</div>
         </div>
         <div class="card stat-card">
           <div class="stat-label">Total sales value</div>
@@ -739,10 +743,37 @@ async function storageSetRaw(key, value){
   catch(e){ return false; }
 }
 
+/* Writes several keys together as one atomic update. This matters most in Firebase
+   mode: saving related pieces (like a sale + the product it came from) one at a time
+   creates a moment where the document is half-updated, and the live sync listener can
+   read that half-updated state and stomp on whichever piece hasn't saved yet. Bundling
+   them into a single write removes that gap entirely. */
+async function storageSetMultiRaw(fieldsObj){
+  if(storageMode==='firebase'){
+    try{ await firestoreDocRef().set(fieldsObj, {merge:true}); return true; }
+    catch(e){ return false; }
+  }
+  if(storageMode==='claude'){
+    try{
+      for(const [k,v] of Object.entries(fieldsObj)){ await window.storage.set(k, v, false); }
+      return true;
+    }catch(e){ return false; }
+  }
+  try{
+    for(const [k,v] of Object.entries(fieldsObj)){ localStorage.setItem(k, v); }
+    return true;
+  }catch(e){ return false; }
+}
+
 function startFirestoreSync(){
   if(fbUnsubSync) fbUnsubSync();
   fbUnsubSync = firestoreDocRef().onSnapshot(doc=>{
     if(!doc.exists) return;
+    // Skip the optimistic "local echo" of our own writes — only trust confirmed
+    // updates from the server (our own writes already updated local state directly,
+    // and this stops an in-between/partial write from a mid-save moment overwriting
+    // data we've already changed in memory but haven't fully saved yet).
+    if(doc.metadata && doc.metadata.hasPendingWrites) return;
     const data = doc.data();
     try{ if(data.gp_products) products = JSON.parse(data.gp_products); }catch(e){}
     try{ if(data.gp_receipts) receipts = JSON.parse(data.gp_receipts); }catch(e){}
@@ -814,6 +845,28 @@ async function saveProducts(){
 }
 async function saveSales(){
   const ok = await storageSetRaw('gp_sales', JSON.stringify(sales));
+  if(!ok) showToast('Could not save — please try again');
+}
+async function saveProductsAndSales(){
+  const ok = await storageSetMultiRaw({
+    gp_products: JSON.stringify(products),
+    gp_sales: JSON.stringify(sales)
+  });
+  if(!ok) showToast('Could not save — please try again');
+}
+async function saveCategoriesAndProducts(){
+  const ok = await storageSetMultiRaw({
+    gp_categories: JSON.stringify(categories),
+    gp_products: JSON.stringify(products)
+  });
+  if(!ok) showToast('Could not save — please try again');
+}
+async function saveVialProductsAndProductsAndSales(){
+  const ok = await storageSetMultiRaw({
+    gp_vial_products: JSON.stringify(vialProducts),
+    gp_products: JSON.stringify(products),
+    gp_sales: JSON.stringify(sales)
+  });
   if(!ok) showToast('Could not save — please try again');
 }
 async function saveReceipts(){
@@ -1055,8 +1108,7 @@ async function saveSale(){
   }
   p.qty -= qty;
 
-  await saveProducts();
-  await saveSales();
+  await saveProductsAndSales();
   closeSaleModal();
   renderAll();
   showToast(`Sale recorded — ${qty} unit(s) to ${buyer}`);
@@ -1083,8 +1135,7 @@ async function confirmDelete(){
   } else if(deleteTarget.type==='category'){
     categories = categories.filter(c=>c!==deleteTarget.id);
     products.forEach(p=>{ if(p.category===deleteTarget.id) p.category='Uncategorized'; });
-    await saveCategories();
-    await saveProducts();
+    await saveCategoriesAndProducts();
     refreshCategorySelectOptions();
   } else if(deleteTarget.type==='vial'){
     vialProducts = vialProducts.filter(v=>v!==deleteTarget.id);
@@ -1122,8 +1173,7 @@ async function confirmRename(){
     const idx = categories.indexOf(renameTarget.oldValue);
     if(idx>-1) categories[idx] = newVal;
     products.forEach(p=>{ if(p.category===renameTarget.oldValue) p.category=newVal; });
-    await saveCategories();
-    await saveProducts();
+    await saveCategoriesAndProducts();
     refreshCategorySelectOptions();
   } else {
     if(newVal!==renameTarget.oldValue && vialProducts.includes(newVal)){ showToast('That product name already exists'); return; }
@@ -1131,9 +1181,7 @@ async function confirmRename(){
     if(idx>-1) vialProducts[idx] = newVal;
     products.forEach(p=>{ if(p.name===renameTarget.oldValue) p.name=newVal; });
     sales.forEach(s=>{ if(s.name===renameTarget.oldValue) s.name=newVal; });
-    await saveVialProducts();
-    await saveProducts();
-    await saveSales();
+    await saveVialProductsAndProductsAndSales();
     refreshVialDatalist();
   }
   closeRenameModal();
@@ -1431,9 +1479,11 @@ function renderInventory(){
 /* ================= RENDER: SALES HISTORY ================= */
 function renderSalesHistory(){
   const totalUnits = sales.reduce((s,x)=>s+x.qty,0);
+  const totalCost = sales.reduce((s,x)=>s+x.qty*x.cost,0);
   const totalValue = sales.reduce((s,x)=>s+x.qty*x.price+(x.fee||0),0);
   const totalProfit = sales.reduce((s,x)=>s+x.qty*(x.price-x.cost)+(x.fee||0),0);
   document.getElementById('sales-units').textContent = totalUnits;
+  document.getElementById('sales-cost').textContent = peso(totalCost);
   document.getElementById('sales-value').textContent = peso(totalValue);
   document.getElementById('sales-profit').textContent = peso(totalProfit);
 
@@ -1449,6 +1499,7 @@ function renderSalesHistory(){
   }
   const rows = list.map(s=>{
     const fee = s.fee||0;
+    const cost = s.qty*s.cost;
     const value = s.qty*s.price + fee;
     const profit = s.qty*(s.price-s.cost) + fee;
     return `<tr>
@@ -1457,6 +1508,7 @@ function renderSalesHistory(){
       <td>${escapeHtml(s.buyer)}</td>
       <td>${s.qty}</td>
       <td>${peso(s.price)}</td>
+      <td>${peso(cost)}</td>
       <td>${peso(value)}</td>
       <td class="${profit>=0?'pos':'neg'}">${profit>=0?'+':''}${peso(profit)}</td>
       <td>
@@ -1468,7 +1520,7 @@ function renderSalesHistory(){
   }).join('');
   wrap.innerHTML = `<table>
     <thead><tr>
-      <th>Date</th><th>Product &amp; batch</th><th>Buyer</th><th>Qty</th><th>Price/unit</th><th>Sales value</th><th>Profit</th><th></th>
+      <th>Date</th><th>Product &amp; batch</th><th>Buyer</th><th>Qty</th><th>Price/unit</th><th>Cost</th><th>Sales value</th><th>Profit</th><th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
