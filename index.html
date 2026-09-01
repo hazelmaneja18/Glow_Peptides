@@ -571,12 +571,21 @@
     <h3>Record a sale</h3>
     <p class="modal-sub" id="sm-product-line">—</p>
     <div class="field-row">
-      <div class="field"><label>Quantity sold</label><input id="sm-qty" type="number" min="1" step="1" value="1"></div>
-      <div class="field"><label>Price / unit (₱)</label><input id="sm-price" type="number" min="0" step="0.01"></div>
+      <div class="field"><label>Quantity sold</label><input id="sm-qty" type="number" min="1" step="1" value="1" oninput="updateSaleTotalPreview()"></div>
+      <div class="field"><label>Price / unit (₱)</label><input id="sm-price" type="number" min="0" step="0.01" oninput="updateSaleTotalPreview()"></div>
     </div>
     <div class="field"><label>Sold to (buyer name)</label><input id="sm-buyer" placeholder="e.g. Maria Santos"></div>
     <div class="field"><label>Date sold</label><input id="sm-date" type="date"></div>
+
+    <div class="field bacwater-field">
+      <label class="checkbox-label"><input type="checkbox" id="sm-fee-subq" onchange="updateSaleTotalPreview()"> Add Everyday Subq fee (+₱150)</label>
+    </div>
+    <div class="field bacwater-field">
+      <label class="checkbox-label"><input type="checkbox" id="sm-fee-set" onchange="updateSaleTotalPreview()"> Add Tirzepatide Set fee (+₱100)</label>
+    </div>
+
     <div class="field-note" id="sm-available-note" style="margin-bottom:6px;"></div>
+    <div class="field-note" id="sm-total-preview" style="font-weight:700;color:var(--purple-ink);margin-bottom:6px;"></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeSaleModal()">Cancel</button>
       <button class="btn btn-primary" onclick="saveSale()">Record sale</button>
@@ -981,6 +990,14 @@ async function saveProduct(){
 }
 
 /* ================= RECORD SALE ================= */
+function updateSaleTotalPreview(){
+  const qty = parseFloat(document.getElementById('sm-qty').value) || 0;
+  const price = parseFloat(document.getElementById('sm-price').value) || 0;
+  const fee = (document.getElementById('sm-fee-subq').checked?150:0) + (document.getElementById('sm-fee-set').checked?100:0);
+  const total = qty*price + fee;
+  document.getElementById('sm-total-preview').textContent = `Total for this sale: ${peso(total)}`;
+}
+
 function openSaleModal(productId){
   const p = products.find(x=>x.id===productId);
   if(!p) return;
@@ -991,7 +1008,10 @@ function openSaleModal(productId){
   document.getElementById('sm-price').value = p.price;
   document.getElementById('sm-buyer').value = '';
   document.getElementById('sm-date').value = todayISO();
+  document.getElementById('sm-fee-subq').checked = false;
+  document.getElementById('sm-fee-set').checked = false;
   document.getElementById('sm-available-note').textContent = `Max available: ${p.qty} unit${p.qty===1?'':'s'}`;
+  updateSaleTotalPreview();
   document.getElementById('sale-modal').style.display = 'flex';
 }
 function closeSaleModal(){ document.getElementById('sale-modal').style.display='none'; saleTargetProductId=null; }
@@ -1003,10 +1023,18 @@ async function saveSale(){
   const price = parseFloat(document.getElementById('sm-price').value) || 0;
   const buyer = document.getElementById('sm-buyer').value.trim() || 'Not specified';
   const date = document.getElementById('sm-date').value || todayISO();
+  const addSubq = document.getElementById('sm-fee-subq').checked;
+  const addSet = document.getElementById('sm-fee-set').checked;
+  const fee = (addSubq?150:0) + (addSet?100:0);
+  const feeLabels = [];
+  if(addSubq) feeLabels.push('Everyday Subq +₱150');
+  if(addSet) feeLabels.push('Tirzepatide Set +₱100');
+  const feeLabel = feeLabels.join(' · ');
 
   if(qty<=0){ showToast('Enter a quantity to sell'); return; }
   if(qty>p.qty){ showToast(`Only ${p.qty} unit(s) available`); return; }
 
+  const preQty = p.qty;
   const unitCost = costPerUnitEffective(p);
   sales.push({
     id: uid(),
@@ -1014,8 +1042,17 @@ async function saveSale(){
     name: p.name,
     batch: p.batch,
     qty, price, cost: unitCost,
+    fee, feeLabel,
     buyer, date
   });
+
+  // The units just sold already carried their share of any flat BAC Water cost
+  // (baked into unitCost above) — shrink what's left so the remaining stock
+  // isn't charged that same cost a second time.
+  if(p.bacWater && p.bacWater.included && preQty > 0){
+    const remainingFraction = (preQty - qty) / preQty;
+    p.bacWater.amount = p.bacWater.amount * remainingFraction;
+  }
   p.qty -= qty;
 
   await saveProducts();
@@ -1221,7 +1258,7 @@ function renderDashboard(){
   const costBulk = sold.reduce((s,p)=>s+costTotal(p),0);
   const qtyBulk = sold.reduce((s,p)=>s+p.qty,0);
 
-  const revenueSales = sales.reduce((s,x)=>s+x.qty*x.price,0);
+  const revenueSales = sales.reduce((s,x)=>s+x.qty*x.price+(x.fee||0),0);
   const costSales = sales.reduce((s,x)=>s+x.qty*x.cost,0);
   const qtySales = sales.reduce((s,x)=>s+x.qty,0);
 
@@ -1302,7 +1339,7 @@ function renderMonthSummary(){
 
   const productIncome = products.filter(p=>p.status==='Sold' && (p.date||'').slice(0,7)===ym)
     .reduce((s,p)=>s+p.qty*p.price,0)
-    + sales.filter(x=>(x.date||'').slice(0,7)===ym).reduce((s,x)=>s+x.qty*x.price,0);
+    + sales.filter(x=>(x.date||'').slice(0,7)===ym).reduce((s,x)=>s+x.qty*x.price+(x.fee||0),0);
   const feeIncome = receipts.filter(r=>(r.date||'').slice(0,7)===ym)
     .reduce((s,r)=>s+r.amount,0);
   const total = productIncome + feeIncome;
@@ -1390,8 +1427,8 @@ function renderInventory(){
 /* ================= RENDER: SALES HISTORY ================= */
 function renderSalesHistory(){
   const totalUnits = sales.reduce((s,x)=>s+x.qty,0);
-  const totalValue = sales.reduce((s,x)=>s+x.qty*x.price,0);
-  const totalProfit = sales.reduce((s,x)=>s+x.qty*(x.price-x.cost),0);
+  const totalValue = sales.reduce((s,x)=>s+x.qty*x.price+(x.fee||0),0);
+  const totalProfit = sales.reduce((s,x)=>s+x.qty*(x.price-x.cost)+(x.fee||0),0);
   document.getElementById('sales-units').textContent = totalUnits;
   document.getElementById('sales-value').textContent = peso(totalValue);
   document.getElementById('sales-profit').textContent = peso(totalProfit);
@@ -1407,11 +1444,12 @@ function renderSalesHistory(){
     return;
   }
   const rows = list.map(s=>{
-    const value = s.qty*s.price;
-    const profit = s.qty*(s.price-s.cost);
+    const fee = s.fee||0;
+    const value = s.qty*s.price + fee;
+    const profit = s.qty*(s.price-s.cost) + fee;
     return `<tr>
       <td>${formatDate(s.date)}</td>
-      <td><div class="vial-name">${escapeHtml(s.name)}</div><div class="vial-batch">${escapeHtml(s.batch)}</div></td>
+      <td><div class="vial-name">${escapeHtml(s.name)}</div><div class="vial-batch">${escapeHtml(s.batch)}${s.feeLabel?' <span class="bac-tag">'+escapeHtml(s.feeLabel)+'</span>':''}</div></td>
       <td>${escapeHtml(s.buyer)}</td>
       <td>${s.qty}</td>
       <td>${peso(s.price)}</td>
@@ -1438,7 +1476,7 @@ function renderReceiptSummary(){
   products.filter(p=>p.status==='Sold').forEach(p=>{
     events.push({date:p.date, amount:p.qty*p.price});
   });
-  sales.forEach(x=> events.push({date:x.date, amount:x.qty*x.price}));
+  sales.forEach(x=> events.push({date:x.date, amount:x.qty*x.price+(x.fee||0)}));
   receipts.forEach(r=> events.push({date:r.date, amount:r.amount}));
 
   const groups = {};
